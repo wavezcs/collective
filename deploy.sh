@@ -202,7 +202,8 @@ oc.setdefault('models', {}).setdefault('providers', {})['ollama'] = {
 # Agents (v2026.4+: named agents via agents.list, not top-level keys)
 oc['agents'] = {
     'list': [
-        {'id': 'locutus',  'name': 'Locutus',   'model': {'primary': 'ollama/hermes3:latest'}},
+        {'id': 'locutus',  'name': 'Locutus',   'model': {'primary': 'ollama/hermes3:latest'},
+         'tools': {'allow': ['collective__one', 'collective__vinculum', 'collective__paperclip', 'web_search', 'web_fetch', 'message', 'session_status']}},
         {'id': 'seven',    'name': 'Seven',      'model': {'primary': 'ollama/llama3-10k:latest'}},
         {'id': 'data',     'name': 'Data',       'model': {'primary': 'ollama/qwen2.5-coder:14b', 'fallbacks': ['ollama/llama3-10k:latest']}},
         {'id': 'hugh',     'name': 'Hugh',       'model': {'primary': 'ollama/hermes3:latest'}},
