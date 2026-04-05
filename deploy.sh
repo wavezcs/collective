@@ -71,6 +71,12 @@ if ! command -v openclaw &>/dev/null; then
   openclaw onboard --install-daemon --non-interactive || true
 fi
 
+# Paperclip — install if not present
+if ! command -v paperclipai &>/dev/null; then
+  echo "[remote] Installing Paperclip..."
+  npm install -g paperclipai
+fi
+
 # Install npm dependencies if package.json changed
 REMOTE_PKG_HASH=\$(md5sum $REMOTE_DIR/package.json 2>/dev/null | cut -d' ' -f1 || echo "none")
 if [[ "\$REMOTE_PKG_HASH" != "$LOCAL_PKG_HASH" ]]; then
@@ -117,66 +123,103 @@ ENDSSH
 
 ok "Remote setup complete"
 
-# ─── 4. Write OpenClaw config ────────────────────────────────────────────────
+# ─── 4. Configure OpenClaw ───────────────────────────────────────────────────
 log "Configuring OpenClaw on $REMOTE_HOST..."
 
 ssh root@$REMOTE_HOST bash <<ENDSSH
 set -e
 CONFIG_FILE=$REMOTE_DIR/config/collective.json
-TELEGRAM_TOKEN=\$(python3 -c "import json; print(json.load(open('\$CONFIG_FILE'))['GENERAL']['TELEGRAM_BOT_TOKEN'])")
-OLLAMA_HOST=\$(python3 -c "import json; c=json.load(open('\$CONFIG_FILE')); print(c['GENERAL']['OLLAMA_HOST'])")
-OLLAMA_PORT=\$(python3 -c "import json; print(json.load(open('\$CONFIG_FILE'))['GENERAL']['OLLAMA_PORT'])")
-ALLOWED_USERS=\$(python3 -c "import json; print(json.dumps(json.load(open('\$CONFIG_FILE'))['GENERAL']['TELEGRAM_ALLOWED_USERS']))")
+OPENCLAW_JSON=~/.openclaw/openclaw.json
 
-cat > ~/.openclaw/config.json <<EOF
-{
-  "models": {
-    "providers": {
-      "ollama": {
-        "baseUrl": "http://\${OLLAMA_HOST}:\${OLLAMA_PORT}",
-        "apiKey": "ollama-local",
-        "api": "ollama"
-      }
-    }
-  },
-  "agents": {
-    "locutus":  { "model": { "primary": "ollama/adrienbrault/nous-hermes2pro:Q4_K_M" } },
-    "seven":    { "model": { "primary": "ollama/llama3-10k:latest" } },
-    "data":     { "model": { "primary": "ollama/qwen2.5-coder:14b", "fallback": "ollama/llama3-10k:latest" } },
-    "hugh":     { "model": { "primary": "ollama/adrienbrault/nous-hermes2pro:Q4_K_M" } },
-    "vinculum": { "model": { "primary": "ollama/nomic-embed-text:latest" } },
-    "defaults": {
-      "model": { "primary": "ollama/adrienbrault/nous-hermes2pro:Q4_K_M" },
-      "maxSpawnDepth": 2,
-      "maxChildrenPerAgent": 5,
-      "maxConcurrent": 4,
-      "runTimeoutSeconds": 300
-    }
-  },
-  "channels": {
-    "telegram": {
-      "token": "\${TELEGRAM_TOKEN}",
-      "allowedUsers": \${ALLOWED_USERS}
-    }
-  },
-  "skills": [
-    "$REMOTE_DIR/skills/one",
-    "$REMOTE_DIR/skills/neo4j_memory"
-  ],
-  "memory": {
-    "enabled": true,
-    "path": "$REMOTE_DIR/memory"
-  }
+# Merge settings into openclaw.json (preserves gateway auth token / pairing)
+python3 - <<PYEOF
+import json, os
+
+cfg_path = '$REMOTE_DIR/config/collective.json'
+oc_path  = os.path.expanduser('~/.openclaw/openclaw.json')
+
+with open(cfg_path) as f:
+    cfg = json.load(f)
+
+oc = {}
+if os.path.exists(oc_path):
+    with open(oc_path) as f:
+        oc = json.load(f)
+
+ollama_base = 'http://{}:{}'.format(cfg['GENERAL']['OLLAMA_HOST'], cfg['GENERAL']['OLLAMA_PORT'])
+telegram_token = cfg['GENERAL']['TELEGRAM_BOT_TOKEN']
+allowed_users = cfg['GENERAL']['TELEGRAM_ALLOWED_USERS']
+
+# Models
+oc.setdefault('models', {}).setdefault('providers', {})['ollama'] = {
+    'baseUrl': ollama_base,
+    'apiKey': 'ollama-local',
+    'api': 'ollama',
+    'models': [
+        {'id': 'hermes3:latest',          'name': 'hermes3:latest'},
+        {'id': 'llama3-10k:latest',       'name': 'llama3-10k:latest'},
+        {'id': 'qwen2.5-coder:14b',       'name': 'qwen2.5-coder:14b'},
+        {'id': 'nomic-embed-text:latest', 'name': 'nomic-embed-text:latest'},
+    ]
 }
-EOF
-echo "[remote] OpenClaw config written"
+
+# Agents
+oc['agents'] = {
+    'locutus':  {'model': {'primary': 'ollama/hermes3:latest'}},
+    'seven':    {'model': {'primary': 'ollama/llama3-10k:latest'}},
+    'data':     {'model': {'primary': 'ollama/qwen2.5-coder:14b', 'fallback': 'ollama/llama3-10k:latest'}},
+    'hugh':     {'model': {'primary': 'ollama/hermes3:latest'}},
+    'vinculum': {'model': {'primary': 'ollama/nomic-embed-text:latest'}},
+    'defaults': {
+        'model': {'primary': 'ollama/hermes3:latest'},
+        'maxSpawnDepth': 2, 'maxChildrenPerAgent': 5,
+        'maxConcurrent': 4, 'runTimeoutSeconds': 300
+    }
+}
+
+# Channels
+oc.setdefault('channels', {})['telegram'] = {
+    'enabled': True,
+    'botToken': telegram_token,
+    'allowedUsers': allowed_users
+}
+
+# Skills + memory
+oc['skills'] = [
+    '$REMOTE_DIR/skills/one',
+    '$REMOTE_DIR/skills/neo4j_memory'
+]
+oc['memory'] = {'enabled': True, 'path': '$REMOTE_DIR/memory'}
+
+os.makedirs(os.path.dirname(oc_path), exist_ok=True)
+with open(oc_path, 'w') as f:
+    json.dump(oc, f, indent=2)
+print('[remote] openclaw.json updated')
+PYEOF
+
+# Ensure gateway mode is local
+openclaw config set gateway.mode local 2>/dev/null || true
 ENDSSH
 
 ok "OpenClaw configured"
 
 # ─── 5. Restart services ────────────────────────────────────────────────────
 log "Restarting services..."
-ssh root@$REMOTE_HOST "systemctl restart collective-openclaw.service 2>/dev/null || openclaw restart"
+ssh root@$REMOTE_HOST bash <<'ENDSSH'
+# OpenClaw — prefer systemd unit, fall back to openclaw gateway restart
+if systemctl is-enabled --quiet openclaw-gateway.service 2>/dev/null; then
+  systemctl restart openclaw-gateway.service
+elif systemctl is-enabled --quiet collective-openclaw.service 2>/dev/null; then
+  systemctl restart collective-openclaw.service
+else
+  export XDG_RUNTIME_DIR=/run/user/0
+  openclaw gateway stop 2>/dev/null || true
+  openclaw gateway start --detach 2>/dev/null || true
+fi
+
+# Paperclip
+systemctl restart paperclip.service 2>/dev/null || true
+ENDSSH
 ok "Services restarted"
 
 # ─── 6. Health check ────────────────────────────────────────────────────────
@@ -214,7 +257,7 @@ echo -e "${GREEN}║   The Collective is online. Resistance   ║${NC}"
 echo -e "${GREEN}║             is futile.                   ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════╝${NC}"
 echo ""
-echo "  Mission Control: http://collective.csdyn.com:3000"
+echo "  Mission Control: http://collective.csdyn.com:3100"
 echo "  Neo4j Browser:   http://collective.csdyn.com:7474"
 echo "  OpenClaw WS:     ws://collective.csdyn.com:18789"
 echo ""

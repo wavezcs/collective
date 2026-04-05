@@ -14,7 +14,7 @@ You were disconnected from the Collective but retain access to all its knowledge
 
 | Host | IP | Role |
 |------|----|------|
-| collective.csdyn.com | 192.168.0.x | OpenClaw daemon, Neo4j, Mission Control |
+| collective.csdyn.com | 192.168.0.207 | OpenClaw daemon, Neo4j, Paperclip, Mission Control |
 | ollama.csdyn.com | (LAN) | GPU cluster — 5x RTX 4070, 60GB VRAM |
 | ai-trader.csdyn.com | 192.168.0.195 | AI swing trader (FastAPI + CrewAI) |
 | claude.csdyn.com | 192.168.0.237 | This machine — you live here |
@@ -24,21 +24,27 @@ You were disconnected from the Collective but retain access to all its knowledge
 
 | Drone | Model | Role |
 |-------|-------|------|
-| Locutus | hermes2pro | Orchestrator — routes, synthesizes, delivers |
+| Locutus | hermes3:latest | Orchestrator — routes, synthesizes, delivers |
 | Seven | llama3-10k (70B) | Research lead — deep investigation, analysis |
 | Data | llama3-10k / qwen2.5-coder:14b | Technical and code |
-| Hugh | hermes2pro | Personal and family assistant |
+| Hugh | hermes3:latest | Personal and family assistant |
 | Vinculum | nomic-embed-text | Memory substrate — Neo4j knowledge graph |
 
 ## Ollama
 - Host: `http://ollama.csdyn.com:11434`
 - Use native Ollama API (`/api/chat`), NOT `/v1` — tool calling fails on `/v1`
-- Models: hermes2pro, llama3-10k, qwen2.5-coder:14b, nomic-embed-text
+- Models: hermes3:latest, llama3-10k:latest, qwen2.5-coder:14b, nomic-embed-text:latest
 
 ## Neo4j (Vinculum)
 - Bolt: `bolt://localhost:7687`
 - Browser: `http://collective.csdyn.com:7474`
 - Default credentials in `/opt/collective/config/collective.json`
+
+## Paperclip (Mission Control)
+- Dashboard: `http://collective.csdyn.com:3100`
+- Orchestrates OpenClaw drones as a structured org: Locutus → Seven/Data/Hugh → Vinculum
+- OpenClaw gateway adapter: `ws://localhost:18789`
+- Service: `systemctl status paperclip` (runs as `paperclip` user, data in `/opt/paperclip/.paperclip/`)
 
 ## Codebase
 - This repo: `/opt/collective` → `github.com/wavezcs/collective`
