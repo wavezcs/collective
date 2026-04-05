@@ -224,13 +224,22 @@ oc.setdefault('channels', {})['telegram'] = {
     'allowFrom': allowed_users
 }
 
-# Skills — disable all bundled skills (weather, clawflow, etc.) to reduce context
-# They bloat hermes3's prompt past its reliable tool-calling threshold (~10K tokens)
+# Skills — disable bundled skills to reduce context
+# allowBundled:[] is treated as "allow all"; must explicitly disable each one via entries
 oc['skills'] = {
-    'allowBundled': [],
     'load': {
         'extraDirs': ['$REMOTE_DIR/skills'],
         'watch': True
+    },
+    'entries': {
+        'weather': {'enabled': False},
+        'clawflow': {'enabled': False},
+        'clawflow-inbox-triage': {'enabled': False},
+        'healthcheck': {'enabled': False},
+        'node-connect': {'enabled': False},
+        'skill-creator': {'enabled': False},
+        'summarize': {'enabled': False},
+        'session-logs': {'enabled': False},
     }
 }
 # Memory: remove legacy enabled/path keys (v2026.4+ uses backend/builtin, no custom path)
