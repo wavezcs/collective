@@ -6,7 +6,7 @@ metadata: {"openclaw":{"always":true,"emoji":"📋"}}
 
 # Paperclip — Mission Control
 
-Use the `paperclip` MCP tool to manage issues in the Collective's Mission Control at `http://collective.csdyn.com:3100`.
+To manage issues, call the **`collective__paperclip`** tool with an `operation` parameter.
 
 ## When to Use
 

@@ -6,7 +6,7 @@ metadata: {"openclaw":{"always":true,"emoji":"🕸️"}}
 
 # Vinculum — Collective Knowledge Graph
 
-Use the `vinculum` MCP tool to interact with the Neo4j knowledge graph at `bolt://localhost:7687`. This is the Collective's persistent memory substrate.
+To access the knowledge graph, call the **`collective__vinculum`** tool with an `operation` parameter.
 
 ## When to Use
 
