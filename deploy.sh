@@ -163,33 +163,40 @@ oc.setdefault('models', {}).setdefault('providers', {})['ollama'] = {
     ]
 }
 
-# Agents
+# Agents (v2026.4+: named agents via agents.list, not top-level keys)
 oc['agents'] = {
-    'locutus':  {'model': {'primary': 'ollama/hermes3:latest'}},
-    'seven':    {'model': {'primary': 'ollama/llama3-10k:latest'}},
-    'data':     {'model': {'primary': 'ollama/qwen2.5-coder:14b', 'fallback': 'ollama/llama3-10k:latest'}},
-    'hugh':     {'model': {'primary': 'ollama/hermes3:latest'}},
-    'vinculum': {'model': {'primary': 'ollama/nomic-embed-text:latest'}},
+    'list': [
+        {'id': 'locutus',  'name': 'Locutus',   'model': {'primary': 'ollama/hermes3:latest'}},
+        {'id': 'seven',    'name': 'Seven',      'model': {'primary': 'ollama/llama3-10k:latest'}},
+        {'id': 'data',     'name': 'Data',       'model': {'primary': 'ollama/qwen2.5-coder:14b', 'fallbacks': ['ollama/llama3-10k:latest']}},
+        {'id': 'hugh',     'name': 'Hugh',       'model': {'primary': 'ollama/hermes3:latest'}},
+        {'id': 'vinculum', 'name': 'Vinculum',   'model': {'primary': 'ollama/nomic-embed-text:latest'}},
+    ],
     'defaults': {
         'model': {'primary': 'ollama/hermes3:latest'},
-        'maxSpawnDepth': 2, 'maxChildrenPerAgent': 5,
-        'maxConcurrent': 4, 'runTimeoutSeconds': 300
+        'maxConcurrent': 4,
+        'timeoutSeconds': 300
     }
 }
 
-# Channels
+# Channels (v2026.4+: allowFrom replaces allowedUsers)
 oc.setdefault('channels', {})['telegram'] = {
     'enabled': True,
     'botToken': telegram_token,
-    'allowedUsers': allowed_users
+    'allowFrom': allowed_users
 }
 
-# Skills + memory
-oc['skills'] = [
-    '$REMOTE_DIR/skills/one',
-    '$REMOTE_DIR/skills/neo4j_memory'
-]
-oc['memory'] = {'enabled': True, 'path': '$REMOTE_DIR/memory'}
+# Skills (v2026.4+: object with load.extraDirs, not array)
+oc['skills'] = {
+    'load': {
+        'extraDirs': [
+            '$REMOTE_DIR/skills/one',
+            '$REMOTE_DIR/skills/neo4j_memory',
+            '$REMOTE_DIR/skills/paperclip',
+        ]
+    }
+}
+# Note: memory.enabled/path removed in v2026.4 — builtin memory is always on
 
 os.makedirs(os.path.dirname(oc_path), exist_ok=True)
 with open(oc_path, 'w') as f:
