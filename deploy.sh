@@ -196,7 +196,8 @@ oc['skills'] = {
         ]
     }
 }
-# Note: memory.enabled/path removed in v2026.4 — builtin memory is always on
+# Memory: remove legacy enabled/path keys (v2026.4+ uses backend/builtin, no custom path)
+oc.pop('memory', None)
 
 os.makedirs(os.path.dirname(oc_path), exist_ok=True)
 with open(oc_path, 'w') as f:
@@ -213,13 +214,13 @@ ok "OpenClaw configured"
 # ─── 5. Restart services ────────────────────────────────────────────────────
 log "Restarting services..."
 ssh root@$REMOTE_HOST bash <<'ENDSSH'
-# OpenClaw — prefer systemd unit, fall back to openclaw gateway restart
-if systemctl is-enabled --quiet openclaw-gateway.service 2>/dev/null; then
-  systemctl restart openclaw-gateway.service
-elif systemctl is-enabled --quiet collective-openclaw.service 2>/dev/null; then
-  systemctl restart collective-openclaw.service
+export XDG_RUNTIME_DIR=/run/user/0
+# OpenClaw — prefer user systemd unit, fall back to openclaw gateway restart
+if systemctl --user is-enabled --quiet openclaw-gateway.service 2>/dev/null; then
+  systemctl --user restart openclaw-gateway.service
+elif systemctl --user is-enabled --quiet collective-openclaw.service 2>/dev/null; then
+  systemctl --user restart collective-openclaw.service
 else
-  export XDG_RUNTIME_DIR=/run/user/0
   openclaw gateway stop 2>/dev/null || true
   openclaw gateway start --detach 2>/dev/null || true
 fi
@@ -232,7 +233,7 @@ ok "Services restarted"
 # ─── 6. Health check ────────────────────────────────────────────────────────
 log "Waiting for OpenClaw to come up..."
 for i in $(seq 1 15); do
-  if ssh root@$REMOTE_HOST "openclaw status 2>/dev/null | grep -q running" 2>/dev/null; then
+  if ssh root@$REMOTE_HOST "export XDG_RUNTIME_DIR=/run/user/0; openclaw status 2>/dev/null | grep -q running" 2>/dev/null; then
     ok "OpenClaw is running"
     break
   fi
