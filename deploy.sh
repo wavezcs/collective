@@ -175,7 +175,8 @@ oc['agents'] = {
     'defaults': {
         'model': {'primary': 'ollama/hermes3:latest'},
         'maxConcurrent': 4,
-        'timeoutSeconds': 300
+        'timeoutSeconds': 300,
+        'contextTokens': 10240
     }
 }
 
