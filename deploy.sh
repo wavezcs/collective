@@ -186,18 +186,26 @@ oc.setdefault('channels', {})['telegram'] = {
     'allowFrom': allowed_users
 }
 
-# Skills (v2026.4+: object with load.extraDirs, not array)
+# Skills (v2026.4+: object with load.extraDirs pointing to parent dir)
 oc['skills'] = {
     'load': {
-        'extraDirs': [
-            '$REMOTE_DIR/skills/one',
-            '$REMOTE_DIR/skills/neo4j_memory',
-            '$REMOTE_DIR/skills/paperclip',
-        ]
+        'extraDirs': ['$REMOTE_DIR/skills'],
+        'watch': True
     }
 }
 # Memory: remove legacy enabled/path keys (v2026.4+ uses backend/builtin, no custom path)
 oc.pop('memory', None)
+
+# MCP server — Collective tools (paperclip, vinculum, one)
+oc.setdefault('mcp', {}).setdefault('servers', {})['collective'] = {
+    'command': 'node',
+    'args': ['$REMOTE_DIR/mcp/server.js'],
+    'env': {
+        'PAPERCLIP_API_KEY':    'pcp_f4c9176394a490a3e6960fdbbb914b48a07b1e8b95020b81',
+        'PAPERCLIP_API_URL':    'http://localhost:3100',
+        'PAPERCLIP_COMPANY_ID': 'f7790917-7be3-4cf0-a55a-bda98adf0c3f',
+    }
+}
 
 os.makedirs(os.path.dirname(oc_path), exist_ok=True)
 with open(oc_path, 'w') as f:
