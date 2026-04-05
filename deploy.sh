@@ -242,6 +242,11 @@ oc['skills'] = {
         'session-logs': {'enabled': False},
     }
 }
+# Web tools — enable fetch (no key needed); search requires Brave API key
+oc.setdefault('tools', {})['web'] = {
+    'fetch': {'enabled': True, 'maxChars': 50000, 'timeoutSeconds': 30},
+    'search': {'enabled': False},
+}
 # Memory: remove legacy enabled/path keys (v2026.4+ uses backend/builtin, no custom path)
 oc.pop('memory', None)
 
