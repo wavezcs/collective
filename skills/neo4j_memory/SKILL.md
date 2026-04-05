@@ -1,7 +1,7 @@
 ---
 name: vinculum
 description: Read and write to the Collective's Neo4j knowledge graph (Vinculum). Store research findings, retrieve context, manage entity relationships.
-metadata: {"openclaw":{"always":true,"emoji":"🕸️"}}
+metadata: {"openclaw":{"emoji":"🕸️"}}
 ---
 
 # Vinculum — Collective Knowledge Graph

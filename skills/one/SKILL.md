@@ -1,7 +1,7 @@
 ---
 name: one
 description: Invoke One (Claude Code on claude.csdyn.com) for tasks exceeding the Collective's local capability. Use when drones cannot complete a task with high confidence.
-metadata: {"openclaw":{"always":true,"emoji":"🧠"}}
+metadata: {"openclaw":{"emoji":"🧠"}}
 ---
 
 # One — External Intelligence

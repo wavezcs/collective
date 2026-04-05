@@ -223,8 +223,10 @@ oc.setdefault('channels', {})['telegram'] = {
     'allowFrom': allowed_users
 }
 
-# Skills (v2026.4+: object with load.extraDirs pointing to parent dir)
+# Skills — disable all bundled skills (weather, clawflow, etc.) to reduce context
+# They bloat hermes3's prompt past its reliable tool-calling threshold (~10K tokens)
 oc['skills'] = {
+    'allowBundled': [],
     'load': {
         'extraDirs': ['$REMOTE_DIR/skills'],
         'watch': True

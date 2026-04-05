@@ -1,7 +1,7 @@
 ---
 name: paperclip
 description: Manage Paperclip (Mission Control) issues — create, list, update, comment. Use to track work items for the Collective.
-metadata: {"openclaw":{"always":true,"emoji":"📋"}}
+metadata: {"openclaw":{"emoji":"📋"}}
 ---
 
 # Paperclip — Mission Control
