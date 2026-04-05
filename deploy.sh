@@ -109,14 +109,43 @@ if ! systemctl is-active --quiet neo4j 2>/dev/null; then
   echo "[remote] Neo4j schema initialized"
 fi
 
-# Configure OpenClaw agents
-OPENCLAW_WORKSPACE=\$(openclaw config get workspace 2>/dev/null || echo "\$HOME/.openclaw/workspace")
-mkdir -p "\$OPENCLAW_WORKSPACE"
-cp $REMOTE_DIR/agents/unimatrix.md "\$OPENCLAW_WORKSPACE/agents.md"
-for agent in locutus seven data hugh vinculum; do
-  mkdir -p "\$OPENCLAW_WORKSPACE/agents/\$agent"
-  cp $REMOTE_DIR/agents/\$agent/designation.md "\$OPENCLAW_WORKSPACE/agents/\$agent/SOUL.md"
-done
+# Configure OpenClaw agents — write SOUL.md to each agent's workspace root
+# OpenClaw injects SOUL.md (and AGENTS.md, IDENTITY.md, USER.md) from workspace root
+# into every session's system prompt. BOOTSTRAP.md triggers first-boot behavior — delete it.
+python3 - <<PYEOF
+import json, subprocess, os
+
+def get_workspace(agent_id):
+    r = subprocess.run(['openclaw', 'agents', 'list', '--json'],
+                       capture_output=True, text=True)
+    agents = json.loads(r.stdout)
+    for a in agents:
+        if a['id'] == agent_id:
+            return a.get('workspace')
+    return None
+
+unimatrix = open('$REMOTE_DIR/agents/unimatrix.md').read().strip()
+
+for agent in ['locutus', 'seven', 'data', 'hugh', 'vinculum']:
+    ws = get_workspace(agent)
+    if not ws:
+        print(f'[remote] WARNING: no workspace found for {agent}')
+        continue
+    os.makedirs(ws, exist_ok=True)
+    # SOUL.md = agent designation + full collective context (unimatrix)
+    designation_path = f'$REMOTE_DIR/agents/{agent}/designation.md'
+    designation = open(designation_path).read().strip()
+    soul = designation + '\n\n---\n\n' + unimatrix + '\n'
+    with open(os.path.join(ws, 'SOUL.md'), 'w') as f:
+        f.write(soul)
+    # Delete BOOTSTRAP.md if present — agent is already configured
+    bootstrap = os.path.join(ws, 'BOOTSTRAP.md')
+    if os.path.exists(bootstrap):
+        os.remove(bootstrap)
+        print(f'[remote] {agent}: deleted BOOTSTRAP.md')
+    print(f'[remote] {agent}: SOUL.md written to {ws}')
+
+PYEOF
 echo "[remote] Agent designations updated"
 
 ENDSSH
@@ -177,7 +206,7 @@ oc['agents'] = {
         'model': {'primary': 'ollama/hermes3:latest'},
         'maxConcurrent': 4,
         'timeoutSeconds': 300,
-        'contextTokens': 10240
+        'contextTokens': 16000
     }
 }
 

@@ -7,7 +7,7 @@
     "NEO4J_USER": "neo4j",
     "NEO4J_PASSWORD": "C0llective#Borg!",
     "ONE_HOST": "claude.csdyn.com",
-    "ONE_USER": "root",
+    "ONE_USER": "claude",
     "TELEGRAM_BOT_TOKEN": "8413782800:AAG-kvdaFP50vDIttTPsDSWAMPQTGjBdeRQ",
     "TELEGRAM_ALLOWED_USERS": [8771388267]
   },
