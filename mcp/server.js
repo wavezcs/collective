@@ -186,7 +186,7 @@ async function runOne(args) {
   const escaped = prompt.replace(/'/g, "'\\''");
   try {
     const result = execSync(
-      `ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${ONE_USER}@${ONE_HOST} "cd ${working_directory} && claude -p '${escaped}'"`,
+      `ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${ONE_USER}@${ONE_HOST} "cd ${working_directory} && claude --dangerously-skip-permissions -p '${escaped}'"`,
       { encoding: 'utf8', timeout: 300000, maxBuffer: 10 * 1024 * 1024 }
     );
     return `[One]\n${result.trim()}`;
