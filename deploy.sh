@@ -156,10 +156,11 @@ oc.setdefault('models', {}).setdefault('providers', {})['ollama'] = {
     'apiKey': 'ollama-local',
     'api': 'ollama',
     'models': [
-        {'id': 'hermes3:latest',          'name': 'hermes3:latest'},
-        {'id': 'llama3-10k:latest',       'name': 'llama3-10k:latest'},
-        {'id': 'qwen2.5-coder:14b',       'name': 'qwen2.5-coder:14b'},
-        {'id': 'nomic-embed-text:latest', 'name': 'nomic-embed-text:latest'},
+        {'id': 'hermes3:latest',          'name': 'hermes3:latest',          'contextWindow': 10240},
+        {'id': 'llama3-10k:latest',       'name': 'llama3-10k:latest',       'contextWindow': 10240},
+        {'id': 'llama3-16k:latest',       'name': 'llama3-16k:latest',       'contextWindow': 16384},
+        {'id': 'qwen2.5-coder:14b',       'name': 'qwen2.5-coder:14b',       'contextWindow': 16384},
+        {'id': 'nomic-embed-text:latest', 'name': 'nomic-embed-text:latest', 'contextWindow': 8192},
     ]
 }
 
