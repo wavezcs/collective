@@ -140,13 +140,13 @@ cat > ~/.openclaw/config.json <<EOF
     }
   },
   "agents": {
-    "locutus":  { "model": { "primary": "ollama/hermes2pro" } },
-    "seven":    { "model": { "primary": "ollama/llama3-10k" } },
-    "data":     { "model": { "primary": "ollama/qwen2.5-coder:14b", "fallback": "ollama/llama3-10k" } },
-    "hugh":     { "model": { "primary": "ollama/hermes2pro" } },
-    "vinculum": { "model": { "primary": "ollama/nomic-embed-text" } },
+    "locutus":  { "model": { "primary": "ollama/adrienbrault/nous-hermes2pro:Q4_K_M" } },
+    "seven":    { "model": { "primary": "ollama/llama3-10k:latest" } },
+    "data":     { "model": { "primary": "ollama/qwen2.5-coder:14b", "fallback": "ollama/llama3-10k:latest" } },
+    "hugh":     { "model": { "primary": "ollama/adrienbrault/nous-hermes2pro:Q4_K_M" } },
+    "vinculum": { "model": { "primary": "ollama/nomic-embed-text:latest" } },
     "defaults": {
-      "model": { "primary": "ollama/hermes2pro" },
+      "model": { "primary": "ollama/adrienbrault/nous-hermes2pro:Q4_K_M" },
       "maxSpawnDepth": 2,
       "maxChildrenPerAgent": 5,
       "maxConcurrent": 4,
@@ -204,7 +204,7 @@ ok "Canary tests passed"
 # ─── 8. ai-trader model validation (if models were updated) ─────────────────
 if [[ "${MIGRATE_MODELS:-false}" == "true" ]]; then
   log "Validating ai-trader model connectivity..."
-  ssh root@$AI_TRADER_HOST "python3 /opt/ai-trader/src/tests/test_canary.py --api-base http://localhost:8000"
+  ssh root@$AI_TRADER_HOST "cd /opt/trading_desk && source venv/bin/activate && python3 src/tests/test_canary.py --api-base http://localhost:8000"
   ok "ai-trader canary passed after model migration"
 fi
 

@@ -124,7 +124,7 @@ for i in $(seq 1 20); do
 done
 
 log "Running ai-trader canary tests..."
-ssh root@$AI_TRADER_HOST "python3 /opt/ai-trader/src/tests/test_canary.py --api-base http://localhost:8000"
+ssh root@$AI_TRADER_HOST "cd /opt/trading_desk && source venv/bin/activate && python3 src/tests/test_canary.py --api-base http://localhost:8000"
 ok "ai-trader canary passed"
 
 # ── 6. Final GPU utilization summary ─────────────────────────────────────────

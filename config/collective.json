@@ -5,19 +5,19 @@
     "OLLAMA_PORT": 11434,
     "NEO4J_URI": "bolt://localhost:7687",
     "NEO4J_USER": "neo4j",
-    "NEO4J_PASSWORD": "CHANGE_ME",
+    "NEO4J_PASSWORD": "C0llective#Borg!",
     "ONE_HOST": "claude.csdyn.com",
     "ONE_USER": "root",
-    "TELEGRAM_BOT_TOKEN": "CHANGE_ME",
-    "TELEGRAM_ALLOWED_USERS": []
+    "TELEGRAM_BOT_TOKEN": "8413782800:AAG-kvdaFP50vDIttTPsDSWAMPQTGjBdeRQ",
+    "TELEGRAM_ALLOWED_USERS": [8771388267]
   },
   "MODELS": {
-    "locutus": "hermes2pro",
-    "seven": "llama3-10k",
-    "data_general": "llama3-10k",
+    "locutus": "adrienbrault/nous-hermes2pro:Q4_K_M",
+    "seven": "llama3-10k:latest",
+    "data_general": "llama3-10k:latest",
     "data_code": "qwen2.5-coder:14b",
-    "hugh": "hermes2pro",
-    "vinculum_embed": "nomic-embed-text"
+    "hugh": "adrienbrault/nous-hermes2pro:Q4_K_M",
+    "vinculum_embed": "nomic-embed-text:latest"
   },
   "OLLAMA_OPTIONS": {
     "api": "ollama",
