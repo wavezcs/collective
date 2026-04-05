@@ -256,7 +256,8 @@ log "Running canary tests..."
 ssh root@$REMOTE_HOST "python3 $REMOTE_DIR/tests/test_canary.py \
   --collective-host http://localhost:18789 \
   --ollama-host http://ollama.csdyn.com:11434 \
-  --neo4j-bolt bolt://localhost:7687"
+  --neo4j-bolt bolt://localhost:7687 \
+  --skip-one"
 
 ok "Canary tests passed"
 

@@ -65,9 +65,9 @@ def main():
     def test_ollama_hermes():
         data = http_get(f"{args.ollama_host}/api/tags")
         models = [m["name"] for m in data.get("models", [])]
-        assert any("hermes2pro" in m for m in models), f"hermes2pro not found. Available: {models}"
+        assert any("hermes3" in m for m in models), f"hermes3 not found. Available: {models}"
 
-    test("Ollama: hermes2pro available", test_ollama_hermes)
+    test("Ollama: hermes3 available", test_ollama_hermes)
 
     def test_ollama_llama3():
         data = http_get(f"{args.ollama_host}/api/tags")
@@ -94,7 +94,7 @@ def main():
         result = http_post(
             f"{args.ollama_host}/api/chat",
             {
-                "model": "hermes2pro",
+                "model": "hermes3:latest",
                 "messages": [{"role": "user", "content": "Reply with exactly: ONLINE"}],
                 "stream": False,
                 "options": {"num_predict": 5}
@@ -102,27 +102,16 @@ def main():
             timeout=60
         )
         content = result.get("message", {}).get("content", "")
-        assert content.strip(), "Empty response from hermes2pro"
+        assert content.strip(), "Empty response from hermes3"
 
-    test("Ollama: hermes2pro inference (Locutus/Hugh)", test_hermes_inference)
+    test("Ollama: hermes3 inference (Locutus/Hugh)", test_hermes_inference)
 
     # ── Neo4j ────────────────────────────────────────────
     def test_neo4j_bolt():
-        try:
-            import neo4j
-        except ImportError:
-            # Try via cypher-shell instead
-            result = subprocess.run(
-                ["cypher-shell", "-u", "neo4j", "-a", args.neo4j_bolt,
-                 "RETURN 'ONLINE' as status"],
-                capture_output=True, text=True, timeout=10
-            )
-            assert result.returncode == 0, f"cypher-shell failed: {result.stderr}"
-            return
+        import socket
         uri = args.neo4j_bolt
         neo4j_host = uri.replace("bolt://", "").split(":")[0]
         port = int(uri.split(":")[-1]) if ":" in uri.split("//")[-1] else 7687
-        import socket
         s = socket.socket()
         s.settimeout(5)
         s.connect((neo4j_host, port))
@@ -131,8 +120,10 @@ def main():
     test("Neo4j: bolt port reachable", test_neo4j_bolt)
 
     def test_neo4j_collective_seed():
+        cfg = json.load(open("/opt/collective/config/collective.json"))
+        pw = cfg["GENERAL"]["NEO4J_PASSWORD"]
         result = subprocess.run(
-            ["cypher-shell", "-u", "neo4j", "-a", args.neo4j_bolt,
+            ["cypher-shell", "-u", "neo4j", "-p", pw, "-a", args.neo4j_bolt,
              "MATCH (n:Entity {name: 'The Collective'}) RETURN count(n) as c"],
             capture_output=True, text=True, timeout=10
         )
@@ -166,6 +157,7 @@ def main():
         def test_one_reachable():
             result = subprocess.run(
                 ["ssh", "-o", "ConnectTimeout=5", "-o", "BatchMode=yes",
+                 "-o", "StrictHostKeyChecking=no",
                  "root@claude.csdyn.com", "claude --version"],
                 capture_output=True, text=True, timeout=10
             )
@@ -175,7 +167,8 @@ def main():
 
         def test_one_invocation():
             result = subprocess.run(
-                ["ssh", "-o", "ConnectTimeout=10", "root@claude.csdyn.com",
+                ["ssh", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=no",
+                 "root@claude.csdyn.com",
                  "claude -p 'Reply with exactly: ASSIMILATED'"],
                 capture_output=True, text=True, timeout=60
             )
