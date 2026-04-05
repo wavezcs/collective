@@ -143,6 +143,12 @@ for agent in ['locutus', 'seven', 'data', 'hugh', 'vinculum']:
     if os.path.exists(bootstrap):
         os.remove(bootstrap)
         print(f'[remote] {agent}: deleted BOOTSTRAP.md')
+    # Write custom AGENTS.md if present in agent dir (overrides OpenClaw default)
+    custom_agents = f'$REMOTE_DIR/agents/{agent}/AGENTS.md'
+    if os.path.exists(custom_agents):
+        import shutil
+        shutil.copy(custom_agents, os.path.join(ws, 'AGENTS.md'))
+        print(f'[remote] {agent}: custom AGENTS.md written to {ws}')
     print(f'[remote] {agent}: SOUL.md written to {ws}')
 
 PYEOF
