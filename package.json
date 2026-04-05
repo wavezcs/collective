@@ -1,0 +1,17 @@
+{
+  "name": "collective",
+  "version": "1.0.0",
+  "description": "The Collective — Borg research crew and personal assistant (OpenClaw + Hermes + Neo4j)",
+  "private": true,
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "neo4j-driver": "^5.27.0"
+  },
+  "scripts": {
+    "start": "openclaw start",
+    "status": "openclaw status",
+    "stop": "openclaw stop"
+  }
+}
