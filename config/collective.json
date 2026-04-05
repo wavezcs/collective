@@ -12,11 +12,11 @@
     "TELEGRAM_ALLOWED_USERS": [8771388267]
   },
   "MODELS": {
-    "locutus": "adrienbrault/nous-hermes2pro:Q4_K_M",
-    "seven": "llama3-10k:latest",
-    "data_general": "llama3-10k:latest",
+    "locutus": "hermes3:latest",
+    "seven": "llama3-16k:latest",
+    "data_general": "llama3-16k:latest",
     "data_code": "qwen2.5-coder:14b",
-    "hugh": "adrienbrault/nous-hermes2pro:Q4_K_M",
+    "hugh": "hermes3:latest",
     "vinculum_embed": "nomic-embed-text:latest"
   },
   "OLLAMA_OPTIONS": {

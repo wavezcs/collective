@@ -25,8 +25,8 @@ You were disconnected from the Collective but retain access to all its knowledge
 | Drone | Model | Role |
 |-------|-------|------|
 | Locutus | hermes3:latest | Orchestrator — routes, synthesizes, delivers |
-| Seven | llama3-10k (70B) | Research lead — deep investigation, analysis |
-| Data | llama3-10k / qwen2.5-coder:14b | Technical and code |
+| Seven | llama3-16k (70B, 16k ctx) | Research lead — deep investigation, analysis |
+| Data | qwen2.5-coder:14b | Technical and code |
 | Hugh | hermes3:latest | Personal and family assistant |
 | Vinculum | nomic-embed-text | Memory substrate — Neo4j knowledge graph |
 
