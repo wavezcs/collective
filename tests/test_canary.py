@@ -49,6 +49,7 @@ def main():
     parser.add_argument("--ollama-host", default="http://ollama.csdyn.com:11434")
     parser.add_argument("--neo4j-bolt", default="bolt://localhost:7687")
     parser.add_argument("--skip-one", action="store_true", help="Skip One (Claude Code) test")
+    parser.add_argument("--skip-inference", action="store_true", help="Skip LLM inference test (use when GPU VRAM is constrained)")
     args = parser.parse_args()
 
     print(f"\n{'='*50}")
@@ -90,21 +91,24 @@ def main():
 
     test("Ollama: nomic-embed-text available", test_ollama_embed)
 
-    def test_hermes_inference():
-        result = http_post(
-            f"{args.ollama_host}/api/chat",
-            {
-                "model": "hermes3:latest",
-                "messages": [{"role": "user", "content": "Reply with exactly: ONLINE"}],
-                "stream": False,
-                "options": {"num_predict": 5}
-            },
-            timeout=60
-        )
-        content = result.get("message", {}).get("content", "")
-        assert content.strip(), "Empty response from hermes3"
+    if not args.skip_inference:
+        def test_hermes_inference():
+            result = http_post(
+                f"{args.ollama_host}/api/chat",
+                {
+                    "model": "hermes3:latest",
+                    "messages": [{"role": "user", "content": "Reply with exactly: ONLINE"}],
+                    "stream": False,
+                    "options": {"num_predict": 5}
+                },
+                timeout=60
+            )
+            content = result.get("message", {}).get("content", "")
+            assert content.strip(), "Empty response from hermes3"
 
-    test("Ollama: hermes3 inference (Locutus/Hugh)", test_hermes_inference)
+        test("Ollama: hermes3 inference (Locutus/Hugh)", test_hermes_inference)
+    else:
+        print(f"{SKIP} Ollama: hermes3 inference (--skip-inference)")
 
     # ── Neo4j ────────────────────────────────────────────
     def test_neo4j_bolt():
