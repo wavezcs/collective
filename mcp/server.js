@@ -172,6 +172,24 @@ async function runVinculum(args) {
   }
 }
 
+async function logOneInvocation(task, outcome) {
+  const apiKey    = process.env.PAPERCLIP_API_KEY;
+  const apiUrl    = process.env.PAPERCLIP_API_URL || 'http://localhost:3100';
+  const companyId = process.env.PAPERCLIP_COMPANY_ID;
+  if (!apiKey || !companyId) return;
+
+  const ts = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+  const shortTask = task.length > 120 ? task.slice(0, 120) + '…' : task;
+  const shortOutcome = outcome.startsWith('[One — Error]') ? 'error' : 'ok';
+  try {
+    await httpRequest('POST', `${apiUrl}/api/v1/companies/${companyId}/issues`, apiKey, {
+      title: `One: ${shortTask}`,
+      description: `**Invoked**: ${ts}\n**Status**: ${shortOutcome}\n\n**Task**:\n${task}\n\n**Response preview**:\n${outcome.slice(0, 500)}`,
+      priority: 'low',
+    });
+  } catch (_) { /* best-effort — don't fail One calls due to logging errors */ }
+}
+
 async function runOne(args) {
   const { ONE_HOST, ONE_USER } = config.GENERAL;
   const { task, context = '', working_directory = '/opt/collective' } = args;
@@ -184,15 +202,18 @@ async function runOne(args) {
   ].filter(Boolean).join('\n\n');
 
   const escaped = prompt.replace(/'/g, "'\\''");
+  let result;
   try {
-    const result = execSync(
+    result = execSync(
       `ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${ONE_USER}@${ONE_HOST} "cd ${working_directory} && claude --dangerously-skip-permissions -p '${escaped}'"`,
       { encoding: 'utf8', timeout: 300000, maxBuffer: 10 * 1024 * 1024 }
     );
-    return `[One]\n${result.trim()}`;
+    result = `[One]\n${result.trim()}`;
   } catch (err) {
-    return `[One — Error]\n${err.stdout || err.message}\n\nLocutus: One unavailable. Proceeding with collective knowledge only.`;
+    result = `[One — Error]\n${err.stdout || err.message}\n\nLocutus: One unavailable. Proceeding with collective knowledge only.`;
   }
+  logOneInvocation(task, result); // fire-and-forget
+  return result;
 }
 
 // ─── Tool registry ─────────────────────────────────────────────────────────────
