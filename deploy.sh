@@ -149,6 +149,12 @@ for agent in ['locutus', 'seven', 'data', 'hugh', 'vinculum']:
         import shutil
         shutil.copy(custom_agents, os.path.join(ws, 'AGENTS.md'))
         print(f'[remote] {agent}: custom AGENTS.md written to {ws}')
+    # Write shared HEARTBEAT.md to every agent workspace
+    heartbeat_src = f'$REMOTE_DIR/agents/HEARTBEAT.md'
+    if os.path.exists(heartbeat_src):
+        import shutil
+        shutil.copy(heartbeat_src, os.path.join(ws, 'HEARTBEAT.md'))
+        print(f'[remote] {agent}: HEARTBEAT.md written to {ws}')
     print(f'[remote] {agent}: SOUL.md written to {ws}')
 
 PYEOF
