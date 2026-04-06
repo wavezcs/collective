@@ -70,12 +70,19 @@ def main():
 
     test("Ollama: hermes3 available", test_ollama_hermes)
 
-    def test_ollama_llama3():
+    def test_ollama_locutus():
         data = http_get(f"{args.ollama_host}/api/tags")
         models = [m["name"] for m in data.get("models", [])]
-        assert any("llama3-10k" in m or "llama3" in m for m in models), f"llama3 not found. Available: {models}"
+        assert any("qwen3.5:35b-a3b" in m for m in models), f"qwen3.5:35b-a3b not found. Available: {models}"
 
-    test("Ollama: llama3-10k available", test_ollama_llama3)
+    test("Ollama: qwen3.5:35b-a3b available (Locutus)", test_ollama_locutus)
+
+    def test_ollama_seven():
+        data = http_get(f"{args.ollama_host}/api/tags")
+        models = [m["name"] for m in data.get("models", [])]
+        assert any("qwen3.5:27b" in m for m in models), f"qwen3.5:27b not found. Available: {models}"
+
+    test("Ollama: qwen3.5:27b available (Seven)", test_ollama_seven)
 
     def test_ollama_coder():
         data = http_get(f"{args.ollama_host}/api/tags")
@@ -106,7 +113,7 @@ def main():
             content = result.get("message", {}).get("content", "")
             assert content.strip(), "Empty response from hermes3"
 
-        test("Ollama: hermes3 inference (Locutus/Hugh)", test_hermes_inference)
+        test("Ollama: hermes3 inference (Hugh)", test_hermes_inference)
     else:
         print(f"{SKIP} Ollama: hermes3 inference (--skip-inference)")
 
