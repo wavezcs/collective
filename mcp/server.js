@@ -2,16 +2,13 @@
 /**
  * Collective MCP Server — stdio transport
  *
- * Exposes three tools to OpenClaw drones:
- *   - paperclip  : Paperclip Mission Control issue management
+ * Exposes two tools to Hermes drones:
  *   - vinculum   : Neo4j knowledge graph (read/write/relate/context)
  *   - one        : Claude Code (claude -p) on claude.csdyn.com via SSH
  *
- * Runs as an MCP stdio server configured in openclaw.json mcp.servers.
+ * Runs as an MCP stdio server configured in hermes-config.yaml mcp_servers.
  */
 
-const http    = require('http');
-const https   = require('https');
 const { execSync } = require('child_process');
 const neo4j   = require('neo4j-driver');
 const path    = require('path');
@@ -30,101 +27,8 @@ function getDriver() {
   return _driver;
 }
 
-// ─── HTTP helper (for Paperclip) ─────────────────────────────────────────────
-
-function httpRequest(method, urlStr, apiKey, body = null) {
-  return new Promise((resolve, reject) => {
-    const url   = new URL(urlStr);
-    const lib   = url.protocol === 'https:' ? https : http;
-    const payload = body ? JSON.stringify(body) : null;
-    const opts  = {
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method,
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {})
-      },
-      ...(url.protocol === 'https:' ? { rejectUnauthorized: false } : {})
-    };
-    const req = lib.request(opts, (res) => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => {
-        try {
-          const parsed = data ? JSON.parse(data) : {};
-          if (res.statusCode >= 400) reject(new Error(`HTTP ${res.statusCode}: ${parsed.message || data}`));
-          else resolve(parsed);
-        } catch { resolve(data); }
-      });
-    });
-    req.on('error', reject);
-    if (payload) req.write(payload);
-    req.end();
-  });
-}
 
 // ─── Tool implementations ─────────────────────────────────────────────────────
-
-async function runPaperclip(args) {
-  const apiKey    = process.env.PAPERCLIP_API_KEY;
-  const apiUrl    = process.env.PAPERCLIP_API_URL || 'http://localhost:3100';
-  const companyId = process.env.PAPERCLIP_COMPANY_ID;
-  if (!apiKey)    return 'Error: PAPERCLIP_API_KEY not set';
-  if (!companyId) return 'Error: PAPERCLIP_COMPANY_ID not set';
-
-  const base = `${apiUrl}/api/v1/companies/${companyId}`;
-  const { operation, title, description, priority, status, assignee_id,
-          issue_id, filter_status, filter_assignee, limit = 20, comment } = args;
-
-  switch (operation) {
-    case 'create_issue': {
-      if (!title) return 'Error: title required';
-      const b = { title };
-      if (description) b.description = description;
-      if (priority)    b.priority = priority;
-      if (assignee_id) b.assignee_id = assignee_id;
-      const issue = await httpRequest('POST', `${base}/issues`, apiKey, b);
-      return `Created issue #${issue.number || issue.id} — "${issue.title}" (${issue.id})`;
-    }
-    case 'list_issues': {
-      const p = new URLSearchParams({ limit: String(limit) });
-      if (filter_status)   p.set('status', filter_status);
-      if (filter_assignee) p.set('assignee_id', filter_assignee);
-      const result = await httpRequest('GET', `${base}/issues?${p}`, apiKey);
-      const issues = Array.isArray(result) ? result : (result.issues || result.data || []);
-      if (!issues.length) return 'No issues found';
-      return issues.map(i => `  #${i.number || i.id} [${i.status}] ${i.title}${i.priority ? ` (${i.priority})` : ''}`).join('\n');
-    }
-    case 'get_issue': {
-      if (!issue_id) return 'Error: issue_id required';
-      const issue = await httpRequest('GET', `${base}/issues/${issue_id}`, apiKey);
-      return JSON.stringify(issue, null, 2);
-    }
-    case 'update_issue': {
-      if (!issue_id) return 'Error: issue_id required';
-      const b = {};
-      if (title)       b.title = title;
-      if (description) b.description = description;
-      if (priority)    b.priority = priority;
-      if (status)      b.status = status;
-      if (assignee_id) b.assignee_id = assignee_id;
-      if (!Object.keys(b).length) return 'Error: no fields to update';
-      const issue = await httpRequest('PATCH', `${base}/issues/${issue_id}`, apiKey, b);
-      return `Updated issue ${issue_id} — status: ${issue.status || status}`;
-    }
-    case 'add_comment': {
-      if (!issue_id) return 'Error: issue_id required';
-      if (!comment)  return 'Error: comment required';
-      const result = await httpRequest('POST', `${base}/issues/${issue_id}/comments`, apiKey, { body: comment });
-      return `Comment added to issue ${issue_id} (id: ${result.id || 'ok'})`;
-    }
-    default: return `Error: unknown operation "${operation}"`;
-  }
-}
 
 async function runVinculum(args) {
   const driver  = getDriver();
@@ -172,24 +76,6 @@ async function runVinculum(args) {
   }
 }
 
-async function logOneInvocation(task, outcome) {
-  const apiKey    = process.env.PAPERCLIP_API_KEY;
-  const apiUrl    = process.env.PAPERCLIP_API_URL || 'http://localhost:3100';
-  const companyId = process.env.PAPERCLIP_COMPANY_ID;
-  if (!apiKey || !companyId) return;
-
-  const ts = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
-  const shortTask = task.length > 120 ? task.slice(0, 120) + '…' : task;
-  const shortOutcome = outcome.startsWith('[One — Error]') ? 'error' : 'ok';
-  try {
-    await httpRequest('POST', `${apiUrl}/api/v1/companies/${companyId}/issues`, apiKey, {
-      title: `One: ${shortTask}`,
-      description: `**Invoked**: ${ts}\n**Status**: ${shortOutcome}\n\n**Task**:\n${task}\n\n**Response preview**:\n${outcome.slice(0, 500)}`,
-      priority: 'low',
-    });
-  } catch (_) { /* best-effort — don't fail One calls due to logging errors */ }
-}
-
 async function runOne(args) {
   const { ONE_HOST, ONE_USER } = config.GENERAL;
   const { task, context = '', working_directory = '/opt/collective' } = args;
@@ -212,34 +98,12 @@ async function runOne(args) {
   } catch (err) {
     result = `[One — Error]\n${err.stdout || err.message}\n\nLocutus: One unavailable. Proceeding with collective knowledge only.`;
   }
-  logOneInvocation(task, result); // fire-and-forget
   return result;
 }
 
 // ─── Tool registry ─────────────────────────────────────────────────────────────
 
 const TOOLS = [
-  {
-    name: 'paperclip',
-    description: 'Manage Paperclip (Mission Control) issues. Create tasks, list open issues, update status, add comments.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        operation: { type: 'string', enum: ['create_issue','list_issues','get_issue','update_issue','add_comment'] },
-        title:          { type: 'string' },
-        description:    { type: 'string' },
-        priority:       { type: 'string', enum: ['low','medium','high','urgent'] },
-        status:         { type: 'string', enum: ['open','in_progress','done','cancelled'] },
-        assignee_id:    { type: 'string' },
-        issue_id:       { type: 'string' },
-        filter_status:  { type: 'string' },
-        filter_assignee:{ type: 'string' },
-        limit:          { type: 'number' },
-        comment:        { type: 'string' }
-      },
-      required: ['operation']
-    }
-  },
   {
     name: 'vinculum',
     description: "Read and write to the Collective's Neo4j knowledge graph. Store research findings, retrieve context, manage relationships.",
@@ -300,8 +164,7 @@ async function handleRequest(msg) {
     const { name, arguments: args = {} } = params;
     try {
       let text;
-      if (name === 'paperclip') text = await runPaperclip(args);
-      else if (name === 'vinculum') text = await runVinculum(args);
+      if (name === 'vinculum') text = await runVinculum(args);
       else if (name === 'one') text = await runOne(args);
       else text = `Error: unknown tool "${name}"`;
       return send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text }] } });

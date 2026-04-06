@@ -52,10 +52,6 @@ mcp_servers:
   collective:
     command: node
     args: ["/opt/collective/mcp/server.js"]
-    env:
-      PAPERCLIP_API_KEY: "pcp_f4c9176394a490a3e6960fdbbb914b48a07b1e8b95020b81"
-      PAPERCLIP_API_URL: "http://localhost:3100"
-      PAPERCLIP_COMPANY_ID: "f7790917-7be3-4cf0-a55a-bda98adf0c3f"
 
 stt:
   enabled: false
