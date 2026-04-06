@@ -45,7 +45,7 @@ def http_post(url, data, timeout=30):
 
 def main():
     parser = argparse.ArgumentParser(description="Collective canary tests")
-    parser.add_argument("--collective-host", default="http://localhost:18789")
+    parser.add_argument("--collective-host", default="http://localhost:18789", help="(unused, kept for compat)")
     parser.add_argument("--ollama-host", default="http://ollama.csdyn.com:11434")
     parser.add_argument("--neo4j-bolt", default="bolt://localhost:7687")
     parser.add_argument("--skip-one", action="store_true", help="Skip One (Claude Code) test")
@@ -135,26 +135,25 @@ def main():
 
     test("Neo4j: Collective seed data present", test_neo4j_collective_seed)
 
-    # ── OpenClaw ─────────────────────────────────────────
-    def test_openclaw_running():
+    # ── Hermes Gateway ───────────────────────────────────
+    def test_hermes_gateway():
         result = subprocess.run(
-            ["openclaw", "status"],
+            ["bash", "-c", "export XDG_RUNTIME_DIR=/run/user/0 PATH=$PATH:/root/.local/bin; hermes gateway status"],
             capture_output=True, text=True, timeout=10
         )
-        assert "running" in result.stdout.lower() or result.returncode == 0, \
-            f"OpenClaw not running: {result.stdout}"
+        assert "active (running)" in result.stdout or "running" in result.stdout.lower(), \
+            f"Hermes gateway not running: {result.stdout}"
 
-    test("OpenClaw: daemon running", test_openclaw_running)
+    test("Hermes: gateway running", test_hermes_gateway)
 
-    def test_openclaw_agents():
-        result = subprocess.run(
-            ["openclaw", "agents", "list"],
-            capture_output=True, text=True, timeout=10
-        )
-        for agent in ["locutus", "seven", "data", "hugh"]:
-            assert agent in result.stdout.lower(), f"Agent {agent} not found in: {result.stdout}"
+    def test_hermes_workspace():
+        import socket
+        s = socket.socket()
+        s.settimeout(5)
+        s.connect(("localhost", 3001))
+        s.close()
 
-    test("OpenClaw: all drones registered", test_openclaw_agents)
+    test("Hermes: workspace UI reachable (port 3001)", test_hermes_workspace)
 
     # ── One (Claude Code) ─────────────────────────────────
     if not args.skip_one:

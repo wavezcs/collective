@@ -33,7 +33,7 @@ if git diff --cached --quiet; then
 else
   git commit -m "$COMMIT_MSG"
 fi
-git push origin main
+git push origin hermes-migration
 ok "GitHub updated"
 
 # ─── 2. Sync to collective.csdyn.com ────────────────────────────────────────
@@ -50,7 +50,6 @@ ok "Sync complete"
 # ─── 3. Remote setup ────────────────────────────────────────────────────────
 log "Running remote setup on $REMOTE_HOST..."
 
-# Compute hashes for dependency change detection
 LOCAL_PKG_HASH=$(md5sum /opt/collective/package.json | cut -d' ' -f1)
 
 ssh root@$REMOTE_HOST bash <<ENDSSH
@@ -58,23 +57,17 @@ set -euo pipefail
 
 cd $REMOTE_DIR
 
-# Node.js / OpenClaw
+# Node.js
 if ! command -v node &>/dev/null || [[ "\$(node --version | cut -d. -f1 | tr -d 'v')" -lt 22 ]]; then
   echo "[remote] Installing Node.js 22..."
   curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
   apt-get install -y nodejs
 fi
 
-if ! command -v openclaw &>/dev/null; then
-  echo "[remote] Installing OpenClaw..."
-  npm install -g openclaw@latest
-  openclaw onboard --install-daemon --non-interactive || true
-fi
-
-# Paperclip — install if not present
-if ! command -v paperclipai &>/dev/null; then
-  echo "[remote] Installing Paperclip..."
-  npm install -g paperclipai
+# Hermes Agent — install if not present
+if ! command -v hermes &>/dev/null && [[ ! -f /root/.local/bin/hermes ]]; then
+  echo "[remote] Installing Hermes Agent..."
+  curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
 fi
 
 # Install npm dependencies if package.json changed
@@ -102,211 +95,122 @@ if ! systemctl is-active --quiet neo4j 2>/dev/null; then
     fi
     sleep 2
   done
-  # Initialize schema
   COLLECTIVE_PW=\$(python3 -c "import json; print(json.load(open('$REMOTE_DIR/config/collective.json'))['GENERAL']['NEO4J_PASSWORD'])")
   cypher-shell -u neo4j -p neo4j "ALTER USER neo4j SET PASSWORD '\$COLLECTIVE_PW' CHANGE NOT REQUIRED" || true
   cypher-shell -u neo4j -p "\$COLLECTIVE_PW" < $REMOTE_DIR/neo4j/init.cypher || true
   echo "[remote] Neo4j schema initialized"
 fi
 
-# Configure OpenClaw agents — write SOUL.md to each agent's workspace root
-# OpenClaw injects SOUL.md (and AGENTS.md, IDENTITY.md, USER.md) from workspace root
-# into every session's system prompt. BOOTSTRAP.md triggers first-boot behavior — delete it.
-python3 - <<PYEOF
-import json, subprocess, os
+# hermes-workspace — install if not present
+if [[ ! -d /opt/hermes-workspace ]]; then
+  echo "[remote] Installing hermes-workspace..."
+  cd /opt && git clone https://github.com/outsourc-e/hermes-workspace.git
+  cd /opt/hermes-workspace && npm install && npm run build
+  cp .env.example .env
+  printf '\nHERMES_API_URL=http://127.0.0.1:8642\n' >> .env
+  cat > /etc/systemd/system/hermes-workspace.service << 'SVCEOF'
+[Unit]
+Description=Hermes Workspace UI
+After=network.target
 
-def get_workspace(agent_id):
-    r = subprocess.run(['openclaw', 'agents', 'list', '--json'],
-                       capture_output=True, text=True)
-    agents = json.loads(r.stdout)
-    for a in agents:
-        if a['id'] == agent_id:
-            return a.get('workspace')
-    return None
+[Service]
+Type=simple
+WorkingDirectory=/opt/hermes-workspace
+ExecStart=/usr/bin/node server-entry.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PORT=3001
+EnvironmentFile=/opt/hermes-workspace/.env
 
-unimatrix = open('$REMOTE_DIR/agents/unimatrix.md').read().strip()
-
-for agent in ['locutus', 'seven', 'data', 'hugh', 'vinculum']:
-    ws = get_workspace(agent)
-    if not ws:
-        print(f'[remote] WARNING: no workspace found for {agent}')
-        continue
-    os.makedirs(ws, exist_ok=True)
-    # SOUL.md = agent designation + full collective context (unimatrix)
-    designation_path = f'$REMOTE_DIR/agents/{agent}/designation.md'
-    designation = open(designation_path).read().strip()
-    soul = designation + '\n\n---\n\n' + unimatrix + '\n'
-    with open(os.path.join(ws, 'SOUL.md'), 'w') as f:
-        f.write(soul)
-    # Delete BOOTSTRAP.md if present — agent is already configured
-    bootstrap = os.path.join(ws, 'BOOTSTRAP.md')
-    if os.path.exists(bootstrap):
-        os.remove(bootstrap)
-        print(f'[remote] {agent}: deleted BOOTSTRAP.md')
-    # Write custom AGENTS.md if present in agent dir (overrides OpenClaw default)
-    custom_agents = f'$REMOTE_DIR/agents/{agent}/AGENTS.md'
-    if os.path.exists(custom_agents):
-        import shutil
-        shutil.copy(custom_agents, os.path.join(ws, 'AGENTS.md'))
-        print(f'[remote] {agent}: custom AGENTS.md written to {ws}')
-    # Write shared HEARTBEAT.md to every agent workspace
-    heartbeat_src = f'$REMOTE_DIR/agents/HEARTBEAT.md'
-    if os.path.exists(heartbeat_src):
-        import shutil
-        shutil.copy(heartbeat_src, os.path.join(ws, 'HEARTBEAT.md'))
-        print(f'[remote] {agent}: HEARTBEAT.md written to {ws}')
-    print(f'[remote] {agent}: SOUL.md written to {ws}')
-
-PYEOF
-echo "[remote] Agent designations updated"
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+  systemctl daemon-reload
+  systemctl enable hermes-workspace
+fi
 
 ENDSSH
 
 ok "Remote setup complete"
 
-# ─── 4. Configure OpenClaw ───────────────────────────────────────────────────
-log "Configuring OpenClaw on $REMOTE_HOST..."
+# ─── 4. Configure Hermes Agent ───────────────────────────────────────────────
+log "Configuring Hermes Agent on $REMOTE_HOST..."
 
-ssh root@$REMOTE_HOST bash <<ENDSSH
-set -e
-CONFIG_FILE=$REMOTE_DIR/config/collective.json
-OPENCLAW_JSON=~/.openclaw/openclaw.json
-
-# Merge settings into openclaw.json (preserves gateway auth token / pairing)
-python3 - <<PYEOF
+ssh root@$REMOTE_HOST python3 - <<PYEOF
 import json, os
 
 cfg_path = '$REMOTE_DIR/config/collective.json'
-oc_path  = os.path.expanduser('~/.openclaw/openclaw.json')
-
 with open(cfg_path) as f:
     cfg = json.load(f)
 
-oc = {}
-if os.path.exists(oc_path):
-    with open(oc_path) as f:
-        oc = json.load(f)
+g = cfg['GENERAL']
+ollama_base = 'http://{}:{}/v1'.format(g['OLLAMA_HOST'], g['OLLAMA_PORT'])
+telegram_token = g['TELEGRAM_BOT_TOKEN']
+allowed_users = ','.join(str(u) for u in g['TELEGRAM_ALLOWED_USERS'])
 
-ollama_base = 'http://{}:{}'.format(cfg['GENERAL']['OLLAMA_HOST'], cfg['GENERAL']['OLLAMA_PORT'])
-telegram_token = cfg['GENERAL']['TELEGRAM_BOT_TOKEN']
-allowed_users = cfg['GENERAL']['TELEGRAM_ALLOWED_USERS']
+# Write ~/.hermes/.env
+env_path = os.path.expanduser('~/.hermes/.env')
+env_lines = [
+    '# Hermes Agent — The Collective',
+    '# LLM: Ollama (local GPU cluster)',
+    f'OPENAI_BASE_URL={ollama_base}',
+    'OPENAI_API_KEY=ollama',
+    '',
+    '# API server for hermes-workspace',
+    'API_SERVER_ENABLED=true',
+    '',
+    '# Telegram',
+    f'TELEGRAM_BOT_TOKEN={telegram_token}',
+    f'TELEGRAM_ALLOWED_USERS={allowed_users}',
+]
+with open(env_path, 'w') as f:
+    f.write('\n'.join(env_lines) + '\n')
+print('[remote] ~/.hermes/.env written')
 
-# Models
-oc.setdefault('models', {}).setdefault('providers', {})['ollama'] = {
-    'baseUrl': ollama_base,
-    'apiKey': 'ollama-local',
-    'api': 'ollama',
-    'models': [
-        {'id': 'hermes3:latest',          'name': 'hermes3:latest',          'contextWindow': 32000},
-        {'id': 'llama3-10k:latest',       'name': 'llama3-10k:latest',       'contextWindow': 32000},
-        {'id': 'llama3-16k:latest',       'name': 'llama3-16k:latest',       'contextWindow': 32000},
-        {'id': 'qwen2.5-coder:14b',       'name': 'qwen2.5-coder:14b',       'contextWindow': 32000},
-        {'id': 'nomic-embed-text:latest', 'name': 'nomic-embed-text:latest', 'contextWindow': 8192},
-    ]
-}
+# Write ~/.hermes/SOUL.md from repo
+unimatrix = open('$REMOTE_DIR/agents/unimatrix.md').read().strip()
+locutus   = open('$REMOTE_DIR/agents/locutus/designation.md').read().strip()
+soul = locutus + '\n\n---\n\n' + unimatrix + '\n'
+with open(os.path.expanduser('~/.hermes/SOUL.md'), 'w') as f:
+    f.write(soul)
+print('[remote] ~/.hermes/SOUL.md written')
 
-# Agents (v2026.4+: named agents via agents.list, not top-level keys)
-oc['agents'] = {
-    'list': [
-        {'id': 'locutus',  'name': 'Locutus',   'model': {'primary': 'ollama/hermes3:latest'},
-         'tools': {'allow': ['collective__one', 'collective__vinculum', 'collective__paperclip', 'web_search', 'web_fetch', 'message', 'session_status']}},
-        {'id': 'seven',    'name': 'Seven',      'model': {'primary': 'ollama/llama3-10k:latest'}},
-        {'id': 'data',     'name': 'Data',       'model': {'primary': 'ollama/qwen2.5-coder:14b', 'fallbacks': ['ollama/llama3-10k:latest']}},
-        {'id': 'hugh',     'name': 'Hugh',       'model': {'primary': 'ollama/hermes3:latest'}},
-        {'id': 'vinculum', 'name': 'Vinculum',   'model': {'primary': 'ollama/nomic-embed-text:latest'}},
-    ],
-    'defaults': {
-        'model': {'primary': 'ollama/hermes3:latest'},
-        'maxConcurrent': 4,
-        'timeoutSeconds': 300,
-        'contextTokens': 32000
-    }
-}
-
-# Channels (v2026.4+: allowFrom replaces allowedUsers)
-oc.setdefault('channels', {})['telegram'] = {
-    'enabled': True,
-    'botToken': telegram_token,
-    'allowFrom': allowed_users
-}
-
-# Skills — disable bundled skills to reduce context
-# allowBundled:[] is treated as "allow all"; must explicitly disable each one via entries
-oc['skills'] = {
-    'load': {
-        'extraDirs': ['$REMOTE_DIR/skills'],
-        'watch': True
-    },
-    'entries': {
-        'weather': {'enabled': False},
-        'clawflow': {'enabled': False},
-        'clawflow-inbox-triage': {'enabled': False},
-        'healthcheck': {'enabled': False},
-        'node-connect': {'enabled': False},
-        'skill-creator': {'enabled': False},
-        'summarize': {'enabled': False},
-        'session-logs': {'enabled': False},
-    }
-}
-# Web tools — enable fetch (no key needed); search requires Brave API key
-oc.setdefault('tools', {})['web'] = {
-    'fetch': {'enabled': True, 'maxChars': 50000, 'timeoutSeconds': 30},
-    'search': {'enabled': False},
-}
-# Memory: remove legacy enabled/path keys (v2026.4+ uses backend/builtin, no custom path)
-oc.pop('memory', None)
-
-# MCP server — Collective tools (paperclip, vinculum, one)
-oc.setdefault('mcp', {}).setdefault('servers', {})['collective'] = {
-    'command': 'node',
-    'args': ['$REMOTE_DIR/mcp/server.js'],
-    'env': {
-        'PAPERCLIP_API_KEY':    'pcp_f4c9176394a490a3e6960fdbbb914b48a07b1e8b95020b81',
-        'PAPERCLIP_API_URL':    'http://localhost:3100',
-        'PAPERCLIP_COMPANY_ID': 'f7790917-7be3-4cf0-a55a-bda98adf0c3f',
-    }
-}
-
-os.makedirs(os.path.dirname(oc_path), exist_ok=True)
-with open(oc_path, 'w') as f:
-    json.dump(oc, f, indent=2)
-print('[remote] openclaw.json updated')
+# Write ~/.hermes/config.yaml
+config_yaml = open('$REMOTE_DIR/agents/hermes-config.yaml').read()
+with open(os.path.expanduser('~/.hermes/config.yaml'), 'w') as f:
+    f.write(config_yaml)
+print('[remote] ~/.hermes/config.yaml written')
 PYEOF
 
-# Ensure gateway mode is local
-openclaw config set gateway.mode local 2>/dev/null || true
-ENDSSH
-
-ok "OpenClaw configured"
+ok "Hermes Agent configured"
 
 # ─── 5. Restart services ────────────────────────────────────────────────────
 log "Restarting services..."
 ssh root@$REMOTE_HOST bash <<'ENDSSH'
 export XDG_RUNTIME_DIR=/run/user/0
-# OpenClaw — prefer user systemd unit, fall back to openclaw gateway restart
-if systemctl --user is-enabled --quiet openclaw-gateway.service 2>/dev/null; then
-  systemctl --user restart openclaw-gateway.service
-elif systemctl --user is-enabled --quiet collective-openclaw.service 2>/dev/null; then
-  systemctl --user restart collective-openclaw.service
-else
-  openclaw gateway stop 2>/dev/null || true
-  openclaw gateway start --detach 2>/dev/null || true
-fi
+export PATH="$PATH:/root/.local/bin"
 
-# Paperclip
-systemctl restart paperclip.service 2>/dev/null || true
+# Hermes gateway
+hermes gateway restart 2>/dev/null || hermes gateway start 2>/dev/null || true
+
+# hermes-workspace
+systemctl restart hermes-workspace.service 2>/dev/null || true
+
+# Neo4j (ensure running)
+systemctl is-active --quiet neo4j || systemctl start neo4j || true
 ENDSSH
 ok "Services restarted"
 
 # ─── 6. Health check ────────────────────────────────────────────────────────
-log "Waiting for OpenClaw to come up..."
+log "Waiting for Hermes gateway to come up..."
 for i in $(seq 1 15); do
-  if ssh root@$REMOTE_HOST "export XDG_RUNTIME_DIR=/run/user/0; openclaw status 2>/dev/null | grep -q running" 2>/dev/null; then
-    ok "OpenClaw is running"
+  if ssh root@$REMOTE_HOST "export XDG_RUNTIME_DIR=/run/user/0 PATH=\$PATH:/root/.local/bin; hermes gateway status 2>/dev/null | grep -q 'active (running)'" 2>/dev/null; then
+    ok "Hermes gateway is running"
     break
   fi
   if [[ $i -eq 15 ]]; then
-    fail "OpenClaw did not start within 30s"
+    fail "Hermes gateway did not start within 30s"
   fi
   sleep 2
 done
@@ -314,7 +218,6 @@ done
 # ─── 7. Canary tests ────────────────────────────────────────────────────────
 log "Running canary tests..."
 ssh root@$REMOTE_HOST "python3 $REMOTE_DIR/tests/test_canary.py \
-  --collective-host http://localhost:18789 \
   --ollama-host http://ollama.csdyn.com:11434 \
   --neo4j-bolt bolt://localhost:7687 \
   --skip-one \
@@ -335,7 +238,7 @@ echo -e "${GREEN}║   The Collective is online. Resistance   ║${NC}"
 echo -e "${GREEN}║             is futile.                   ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════╝${NC}"
 echo ""
-echo "  Mission Control: http://collective.csdyn.com:3100"
-echo "  Neo4j Browser:   http://collective.csdyn.com:7474"
-echo "  OpenClaw WS:     ws://collective.csdyn.com:18789"
+echo "  Hermes Workspace: http://collective.csdyn.com:3001"
+echo "  Neo4j Browser:    http://collective.csdyn.com:7474"
+echo "  Ollama:           http://ollama.csdyn.com:11434"
 echo ""
