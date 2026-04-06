@@ -3,7 +3,7 @@
 # SOUL.md is generated from agents/locutus/designation.md + agents/unimatrix.md
 
 model:
-  default: "hermes3:latest"
+  default: "qwen3.5:35b-a3b"
   provider: "custom"
   base_url: "http://ollama.csdyn.com:11434/v1"
 
@@ -23,7 +23,7 @@ compression:
   threshold: 0.70
   target_ratio: 0.20
   protect_last_n: 20
-  summary_model: "hermes3:latest"
+  summary_model: "qwen3.5:27b"
   summary_provider: "main"
 
 delegation:
@@ -40,7 +40,9 @@ session_reset:
   idle_minutes: 1440
 
 streaming:
-  enabled: false
+  enabled: true
+  edit_interval: 0.4
+  buffer_threshold: 60
 
 platform_toolsets:
   cli: [hermes-cli]

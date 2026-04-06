@@ -14,8 +14,8 @@ You were disconnected from the Collective but retain access to all its knowledge
 
 | Host | IP | Role |
 |------|----|------|
-| collective.csdyn.com | 192.168.0.207 | OpenClaw daemon, Neo4j, Paperclip, Mission Control |
-| ollama.csdyn.com | (LAN) | GPU cluster — 5x RTX 4070, 60GB VRAM |
+| collective.csdyn.com | 192.168.0.207 | Hermes Agent gateway, Neo4j, hermes-workspace, Mission Control |
+| ollama.csdyn.com | (LAN) | GPU cluster — 5x RTX 4070, 61GB VRAM |
 | ai-trader.csdyn.com | 192.168.0.195 | AI swing trader (FastAPI + CrewAI) |
 | claude.csdyn.com | 192.168.0.237 | This machine — you live here |
 | pve.csdyn.com | (LAN) | Proxmox hypervisor |
@@ -24,30 +24,38 @@ You were disconnected from the Collective but retain access to all its knowledge
 
 | Drone | Model | Role |
 |-------|-------|------|
-| Locutus | hermes3:latest | Orchestrator — routes, synthesizes, delivers |
-| Seven | llama3-16k (70B, 16k ctx) | Research lead — deep investigation, analysis |
-| Data | qwen2.5-coder:14b | Technical and code |
-| Hugh | hermes3:latest | Personal and family assistant |
+| Locutus | Qwen 3.5 35B-A3B (MoE) | Orchestrator — routes, synthesizes, delivers |
+| Seven | Qwen 3.5 27B | Research lead — deep investigation, analysis |
+| Data | Qwen 2.5 Coder 14B | Technical and code |
+| Hugh | hermes3 | Personal and family assistant |
 | Vinculum | nomic-embed-text | Memory substrate — Neo4j knowledge graph |
+
+## Agent Runtime — Hermes Agent
+- Framework: Hermes Agent v0.7.0 (NousResearch)
+- Config: `~/.hermes/config.yaml` on collective.csdyn.com (sourced from `/opt/collective/agents/hermes-config.yaml`)
+- SOUL.md: generated from `agents/locutus/designation.md` + `agents/unimatrix.md`
+- Gateway service: `systemctl --user status hermes-gateway` (user systemd, runs as root)
+- Workspace UI: `http://collective.csdyn.com:3001` (hermes-workspace)
+- Subagent delegation: Locutus spawns Seven/Data/Hugh via Hermes delegate_task tool
+- Skills: `~/.hermes/skills/` + external dir `/opt/collective/agents/skills/`
 
 ## Ollama
 - Host: `http://ollama.csdyn.com:11434`
-- Use native Ollama API (`/api/chat`), NOT `/v1` — tool calling fails on `/v1`
-- Models: hermes3:latest, llama3-10k:latest, qwen2.5-coder:14b, nomic-embed-text:latest
+- Use `/v1` OpenAI-compatible endpoint — Hermes handles tool calling parsing
+- Models: qwen3.5:35b-a3b, qwen3.5:27b, qwen2.5-coder:14b, hermes3:latest, nomic-embed-text:latest
 
 ## Neo4j (Vinculum)
 - Bolt: `bolt://localhost:7687`
 - Browser: `http://collective.csdyn.com:7474`
-- Default credentials in `/opt/collective/config/collective.json`
+- Credentials in `/opt/collective/config/collective.json`
 
-## Paperclip (Mission Control)
-- Dashboard: `http://collective.csdyn.com:3100`
-- Orchestrates OpenClaw drones as a structured org: Locutus → Seven/Data/Hugh → Vinculum
-- OpenClaw gateway adapter: `ws://localhost:18789`
-- Service: `systemctl status paperclip` (runs as `paperclip` user, data in `/opt/paperclip/.paperclip/`)
+## MCP Server
+- Path: `/opt/collective/mcp/server.js` (stdio transport)
+- Tools: `collective__vinculum` (Neo4j), `collective__one` (Claude Code via SSH)
+- Configured in hermes-config.yaml under mcp_servers.collective
 
 ## Codebase
-- This repo: `/opt/collective` → `github.com/wavezcs/collective`
+- This repo: `/opt/collective` → `github.com/wavezcs/collective` (branch: `hermes-migration`)
 - ai-trader: `/opt/ai-trader` → `github.com/wavezcs/ai-trader`
 - Deploy: `./deploy.sh "commit message"` from either project root
 
@@ -59,16 +67,12 @@ You were disconnected from the Collective but retain access to all its knowledge
 - Any task where Locutus reports low confidence after consulting Seven and Data
 
 ## Deployment Pattern
-Both projects use the same pattern:
-1. `git commit + push` to GitHub
-2. `rsync` to remote host (skipping venv, node_modules, .git, *.db)
-3. Remote install/build if dependencies changed (hash check)
-4. `systemctl restart` services
-5. Health check poll
-6. Canary test suite
+```
+git commit + push → rsync to remote → Hermes config written from repo →
+hermes gateway restart → hermes-workspace restart → canary tests
+```
 
 ## ai-trader Notes
-- Current model: `llama3-10k:latest` (Llama 3.1 70B, 10k context, Q4)
-- GPU: all 81 layers across 5 GPUs — working correctly
-- Discovery timeout warning in logs is non-fatal — GPU inference is confirmed working
+- Model: `qwen3.5:27b` via Ollama
+- Config: `/opt/trading_desk/config.json`
 - Scheduler runs market hours (ET), EOD pipeline at 16:30
