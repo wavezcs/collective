@@ -132,9 +132,9 @@ fi
 # Always ensure HERMES_API_URL is set in workspace .env
 if [[ -f /opt/hermes-workspace/.env ]]; then
   if grep -q '^HERMES_API_URL=' /opt/hermes-workspace/.env; then
-    sed -i 's|^HERMES_API_URL=.*|HERMES_API_URL=http://127.0.0.1:8642|' /opt/hermes-workspace/.env
+    sed -i 's|^HERMES_API_URL=.*|HERMES_API_URL=http://collective.csdyn.com:8642|' /opt/hermes-workspace/.env
   else
-    printf '\nHERMES_API_URL=http://127.0.0.1:8642\n' >> /opt/hermes-workspace/.env
+    printf '\nHERMES_API_URL=http://collective.csdyn.com:8642\n' >> /opt/hermes-workspace/.env
   fi
   echo "[remote] hermes-workspace HERMES_API_URL set"
 fi
