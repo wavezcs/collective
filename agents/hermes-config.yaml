@@ -4,8 +4,7 @@
 
 model:
   default: "qwen3.5:35b-a3b"
-  provider: "custom"
-  base_url: "http://ollama.csdyn.com:11434/v1"
+  provider: "ollama"
 
 terminal:
   backend: "local"
