@@ -4,12 +4,11 @@
  *
  * Exposes two tools to Hermes drones:
  *   - vinculum   : Neo4j knowledge graph (read/write/relate/context)
- *   - one        : Claude Code (claude -p) on claude.csdyn.com via SSH
+ *   - one        : Claude Code via one-api HTTP on claude.csdyn.com
  *
  * Runs as an MCP stdio server configured in hermes-config.yaml mcp_servers.
  */
 
-const { execSync } = require('child_process');
 const neo4j   = require('neo4j-driver');
 const path    = require('path');
 const fs      = require('fs');
@@ -77,28 +76,22 @@ async function runVinculum(args) {
 }
 
 async function runOne(args) {
-  const { ONE_HOST, ONE_USER } = config.GENERAL;
+  const { ONE_API_URL, ONE_API_KEY } = config.GENERAL;
   const { task, context = '', working_directory = '/opt/collective' } = args;
 
-  const prompt = [
-    'You are One, invoked by the Collective via Locutus.',
-    context ? `Context from Collective drones:\n${context}` : '',
-    `Task:\n${task}`,
-    'Return structured, actionable output. Be concise.'
-  ].filter(Boolean).join('\n\n');
-
-  const escaped = prompt.replace(/'/g, "'\\''");
-  let result;
   try {
-    result = execSync(
-      `ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${ONE_USER}@${ONE_HOST} "cd ${working_directory} && claude --dangerously-skip-permissions -p '${escaped}'"`,
-      { encoding: 'utf8', timeout: 300000, maxBuffer: 10 * 1024 * 1024 }
-    );
-    result = `[One]\n${result.trim()}`;
+    const res = await fetch(`${ONE_API_URL}/invoke`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': ONE_API_KEY },
+      body:    JSON.stringify({ task, context, working_directory }),
+      signal:  AbortSignal.timeout(300_000)
+    });
+    const data = await res.json();
+    if (data.error) return `[One — Error]\n${data.error}\n\nLocutus: One unavailable. Proceeding with collective knowledge only.`;
+    return data.result;
   } catch (err) {
-    result = `[One — Error]\n${err.stdout || err.message}\n\nLocutus: One unavailable. Proceeding with collective knowledge only.`;
+    return `[One — Error]\n${err.message}\n\nLocutus: One unavailable. Proceeding with collective knowledge only.`;
   }
-  return result;
 }
 
 // ─── Tool registry ─────────────────────────────────────────────────────────────
