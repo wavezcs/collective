@@ -47,7 +47,7 @@ streaming:
 platform_toolsets:
   cli: [hermes-cli]
   telegram: [terminal, file, web, skills, todo, cronjob]
-  workspace: [terminal, file, web, skills, todo, cronjob]
+  api_server: [terminal, file, web, skills, todo, cronjob]
 
 mcp_servers:
   collective:
