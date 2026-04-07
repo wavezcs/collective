@@ -107,7 +107,6 @@ if [[ ! -d /opt/hermes-workspace ]]; then
   cd /opt && git clone https://github.com/outsourc-e/hermes-workspace.git
   cd /opt/hermes-workspace && npm install && npm run build
   cp .env.example .env
-  printf '\nHERMES_API_URL=http://127.0.0.1:8642\n' >> .env
   cat > /etc/systemd/system/hermes-workspace.service << 'SVCEOF'
 [Unit]
 Description=Hermes Workspace UI
@@ -128,6 +127,16 @@ WantedBy=multi-user.target
 SVCEOF
   systemctl daemon-reload
   systemctl enable hermes-workspace
+fi
+
+# Always ensure HERMES_API_URL is set in workspace .env
+if [[ -f /opt/hermes-workspace/.env ]]; then
+  if grep -q '^HERMES_API_URL=' /opt/hermes-workspace/.env; then
+    sed -i 's|^HERMES_API_URL=.*|HERMES_API_URL=http://127.0.0.1:8642|' /opt/hermes-workspace/.env
+  else
+    printf '\nHERMES_API_URL=http://127.0.0.1:8642\n' >> /opt/hermes-workspace/.env
+  fi
+  echo "[remote] hermes-workspace HERMES_API_URL set"
 fi
 
 ENDSSH
@@ -159,6 +168,7 @@ env_lines = [
     '',
     '# API server for hermes-workspace',
     'API_SERVER_ENABLED=true',
+    'API_SERVER_HOST=0.0.0.0',
     '',
     '# Telegram',
     f'TELEGRAM_BOT_TOKEN={telegram_token}',
