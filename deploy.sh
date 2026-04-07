@@ -84,7 +84,7 @@ else
     git -C "\$HERMES_DIR" remote set-url origin "\$FORK_URL"
     git -C "\$HERMES_DIR" fetch origin
     git -C "\$HERMES_DIR" reset --hard origin/main
-    cd "\$HERMES_DIR" && source venv/bin/activate && pip install -e ".[all]" --quiet 2>/dev/null || pip install -e . --quiet
+    cd "\$HERMES_DIR" && venv/bin/pip install -e ".[all]" --quiet 2>/dev/null || venv/bin/pip install -e . --quiet
   fi
 fi
 
