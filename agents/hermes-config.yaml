@@ -42,11 +42,12 @@ session_reset:
 streaming:
   enabled: true
   edit_interval: 0.4
-  buffer_threshold: 60
+  buffer_threshold: 20
 
 platform_toolsets:
   cli: [hermes-cli]
   telegram: [terminal, file, web, skills, todo, cronjob]
+  workspace: [terminal, file, web, skills, todo, cronjob]
 
 mcp_servers:
   collective:

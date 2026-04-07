@@ -22,6 +22,6 @@
   "OLLAMA_OPTIONS": {
     "api": "ollama",
     "keep_alive": "2h",
-    "num_ctx": 10240
+    "num_ctx": 32768
   }
 }
