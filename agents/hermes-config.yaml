@@ -53,6 +53,24 @@ mcp_servers:
     command: node
     args: ["/opt/collective/mcp/server.js"]
 
+auxiliary:
+  vision:
+    provider: "main"
+  web_extract:
+    provider: "main"
+  compression:
+    provider: "main"
+  session_search:
+    provider: "main"
+  skills_hub:
+    provider: "main"
+  approval:
+    provider: "main"
+  mcp:
+    provider: "main"
+  flush_memories:
+    provider: "main"
+
 stt:
   enabled: false
 
