@@ -64,10 +64,28 @@ if ! command -v node &>/dev/null || [[ "\$(node --version | cut -d. -f1 | tr -d 
   apt-get install -y nodejs
 fi
 
-# Hermes Agent — install if not present
-if ! command -v hermes &>/dev/null && [[ ! -f /root/.local/bin/hermes ]]; then
-  echo "[remote] Installing Hermes Agent..."
-  curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
+# Hermes Agent — install outsourc-e fork (has enhanced WebAPI for hermes-workspace)
+HERMES_DIR="/root/.hermes/hermes-agent"
+FORK_URL="https://github.com/outsourc-e/hermes-agent.git"
+
+if [[ ! -d "\$HERMES_DIR" ]]; then
+  echo "[remote] Installing Hermes Agent (outsourc-e fork)..."
+  mkdir -p /root/.hermes
+  git clone "\$FORK_URL" "\$HERMES_DIR"
+  cd "\$HERMES_DIR"
+  python3 -m venv venv || uv venv venv --python 3.11
+  source venv/bin/activate && pip install -e ".[all]" --quiet 2>/dev/null || pip install -e . --quiet
+  mkdir -p /root/.local/bin
+  ln -sf "\$HERMES_DIR/venv/bin/hermes" /root/.local/bin/hermes
+else
+  CURRENT_REMOTE=\$(git -C "\$HERMES_DIR" remote get-url origin 2>/dev/null || echo "")
+  if [[ "\$CURRENT_REMOTE" != "\$FORK_URL" ]]; then
+    echo "[remote] Migrating Hermes to outsourc-e fork..."
+    git -C "\$HERMES_DIR" remote set-url origin "\$FORK_URL"
+    git -C "\$HERMES_DIR" fetch origin
+    git -C "\$HERMES_DIR" reset --hard origin/main
+    cd "\$HERMES_DIR" && source venv/bin/activate && pip install -e ".[all]" --quiet 2>/dev/null || pip install -e . --quiet
+  fi
 fi
 
 # Install npm dependencies if package.json changed
