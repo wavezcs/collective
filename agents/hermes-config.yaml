@@ -8,7 +8,7 @@ model:
   base_url: "http://ollama.csdyn.com:11434/v1"
   api_key: "ollama"
 
-_config_version: 12
+_config_version: 13
 
 terminal:
   backend: "local"
@@ -19,7 +19,7 @@ terminal:
 agent:
   max_turns: 60
   verbose: false
-  reasoning_effort: "none"
+  reasoning_effort: "low"
 
 compression:
   enabled: true
