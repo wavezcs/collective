@@ -25,6 +25,11 @@ ok()   { echo -e "${GREEN}[ok]${NC} $1"; }
 warn() { echo -e "${YELLOW}[warn]${NC} $1"; }
 fail() { echo -e "${RED}[fail]${NC} $1"; exit 1; }
 
+# ─── 0. Build Mission Control (before git add so dist is included) ───────────
+log "Building Mission Control..."
+(cd /opt/collective/mission-control && npm install --silent && npm run build)
+ok "Mission Control built"
+
 # ─── 1. Git commit + push ────────────────────────────────────────────────────
 log "Committing and pushing to GitHub..."
 git add -A
@@ -217,11 +222,6 @@ print('[remote] ~/.hermes/config.yaml written')
 PYEOF
 
 ok "Hermes Agent configured"
-
-# ─── 4b. Build Mission Control ───────────────────────────────────────────────
-log "Building Mission Control..."
-(cd /opt/collective/mission-control && npm install --silent && npm run build)
-ok "Mission Control built"
 
 # ─── 5. Restart services ────────────────────────────────────────────────────
 log "Restarting services..."
