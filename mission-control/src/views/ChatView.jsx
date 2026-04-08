@@ -25,7 +25,7 @@ export default function ChatView({ sessionId, onSessionCreated }) {
 
   useEffect(() => {
     if (history) {
-      const msgs = (history.messages || history || []).filter(m =>
+      const msgs = (history.items || history.messages || []).filter(m =>
         m.role === 'user' || m.role === 'assistant'
       ).map(m => ({
         role: m.role,
