@@ -49,7 +49,16 @@ export default function ChatView({ sessionId, onSessionCreated }) {
 
   async function send(text) {
     if (busy) return
-    const session = await ensureSession()
+    let session
+    try {
+      session = await ensureSession()
+    } catch (err) {
+      setMessages(prev => [...prev,
+        { role: 'user', content: text },
+        { role: 'assistant', content: `_Error connecting to Hermes: ${err.message}_` }
+      ])
+      return
+    }
     setMessages(prev => [...prev, { role: 'user', content: text }])
     setStreaming({ content: '', toolCalls: [] })
     setBusy(true)
