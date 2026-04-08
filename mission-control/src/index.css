@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: #0a0f0a;
+  color: #d4e8d4;
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-size: 13px;
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: #111811; }
+::-webkit-scrollbar-thumb { background: #1f2e1f; border-radius: 2px; }
+
+.prose { color: #d4e8d4; max-width: none; }
+.prose p { margin: 0.4em 0; }
+.prose pre { background: #0a0f0a; border: 1px solid #1f2e1f; border-radius: 4px; padding: 0.75rem; overflow-x: auto; }
+.prose code { font-family: inherit; font-size: 12px; color: #86efac; }
+.prose pre code { color: #d4e8d4; }
+.prose h1,.prose h2,.prose h3 { color: #22c55e; font-weight: 600; margin: 0.75em 0 0.25em; }
+.prose ul,.prose ol { padding-left: 1.25rem; margin: 0.4em 0; }
+.prose li { margin: 0.2em 0; }
+.prose strong { color: #86efac; font-weight: 600; }
+.prose a { color: #4ade80; }
+.prose blockquote { border-left: 2px solid #1f2e1f; padding-left: 0.75rem; color: #6b8f6b; margin: 0.5em 0; }
+.prose table { border-collapse: collapse; width: 100%; margin: 0.5em 0; }
+.prose th,.prose td { border: 1px solid #1f2e1f; padding: 0.3rem 0.6rem; }
+.prose th { background: #162016; color: #22c55e; }
+
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+.cursor-blink { animation: blink 1s infinite; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+.fade-in { animation: fadeIn 0.15s ease-out; }

@@ -178,6 +178,8 @@ allowed_users = ','.join(str(u) for u in g['TELEGRAM_ALLOWED_USERS'])
 
 # Write ~/.hermes/.env
 env_path = os.path.expanduser('~/.hermes/.env')
+tavily_key = g.get('TAVILY_API_KEY', '')
+
 env_lines = [
     '# Hermes Agent — The Collective',
     '# LLM: Ollama (local GPU cluster)',
@@ -187,6 +189,9 @@ env_lines = [
     '# API server for hermes-workspace',
     'API_SERVER_ENABLED=true',
     'API_SERVER_HOST=0.0.0.0',
+    '',
+    '# Web search (Tavily)',
+    f'TAVILY_API_KEY={tavily_key}',
     '',
     '# Telegram',
     f'TELEGRAM_BOT_TOKEN={telegram_token}',
@@ -213,11 +218,55 @@ PYEOF
 
 ok "Hermes Agent configured"
 
+# ─── 4b. Build Mission Control ───────────────────────────────────────────────
+log "Building Mission Control..."
+(cd /opt/collective/mission-control && npm install --silent && npm run build)
+ok "Mission Control built"
+
 # ─── 5. Restart services ────────────────────────────────────────────────────
 log "Restarting services..."
-ssh root@$REMOTE_HOST bash <<'ENDSSH'
+ssh root@$REMOTE_HOST bash <<ENDSSH
+set -euo pipefail
 export XDG_RUNTIME_DIR=/run/user/0
-export PATH="$PATH:/root/.local/bin"
+export PATH="\$PATH:/root/.local/bin"
+
+# projects-api — install deps + systemd service
+cd $REMOTE_DIR/projects-api
+REMOTE_PKG_HASH=\$(md5sum package.json 2>/dev/null | cut -d' ' -f1 || echo "none")
+if [[ ! -d node_modules ]]; then
+  echo "[remote] Installing projects-api dependencies..."
+  npm install --silent
+fi
+
+if [[ ! -f /etc/systemd/system/projects-api.service ]]; then
+  cat > /etc/systemd/system/projects-api.service << 'SVCEOF'
+[Unit]
+Description=Collective Projects API
+After=network.target neo4j.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/node $REMOTE_DIR/projects-api/server.js
+WorkingDirectory=$REMOTE_DIR/projects-api
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+  systemctl daemon-reload
+  systemctl enable projects-api
+fi
+systemctl restart projects-api || true
+
+# Nginx — Mission Control
+if [[ ! -f /etc/nginx/sites-enabled/mission-control ]]; then
+  cp $REMOTE_DIR/nginx/mission-control.conf /etc/nginx/sites-available/mission-control
+  ln -sf /etc/nginx/sites-available/mission-control /etc/nginx/sites-enabled/mission-control
+  rm -f /etc/nginx/sites-enabled/default
+fi
+cp $REMOTE_DIR/nginx/mission-control.conf /etc/nginx/sites-available/mission-control
+nginx -t 2>/dev/null && systemctl reload nginx || true
 
 # Hermes gateway
 hermes gateway restart 2>/dev/null || hermes gateway start 2>/dev/null || true

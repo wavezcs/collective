@@ -1,0 +1,9 @@
+{
+  "name": "collective-projects-api",
+  "version": "1.0.0",
+  "description": "Project management API for Mission Control",
+  "main": "server.js",
+  "dependencies": {
+    "neo4j-driver": "^5.0.0"
+  }
+}

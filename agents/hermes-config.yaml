@@ -8,7 +8,7 @@ model:
   base_url: "http://ollama.csdyn.com:11434/v1"
   api_key: "ollama"
 
-_config_version: 13
+_config_version: 14
 
 terminal:
   backend: "local"
@@ -74,6 +74,9 @@ auxiliary:
     provider: "main"
   flush_memories:
     provider: "main"
+
+web:
+  backend: "tavily"
 
 stt:
   enabled: false
