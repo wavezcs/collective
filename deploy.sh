@@ -194,6 +194,7 @@ env_lines = [
     '# API server for hermes-workspace',
     'API_SERVER_ENABLED=true',
     'API_SERVER_HOST=0.0.0.0',
+    'API_SERVER_CORS_ORIGINS=*',
     '',
     '# Web search (Tavily)',
     f'TAVILY_API_KEY={tavily_key}',
