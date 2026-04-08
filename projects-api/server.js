@@ -84,11 +84,12 @@ async function listProjects() {
 }
 
 async function getProject(id) {
-  const session = driver.session();
+  const s1 = driver.session();
+  const s2 = driver.session();
   try {
     const [projRes, iterRes] = await Promise.all([
-      session.run('MATCH (p:Project {id: $id}) RETURN p', { id }),
-      session.run(
+      s1.run('MATCH (p:Project {id: $id}) RETURN p', { id }),
+      s2.run(
         `MATCH (p:Project {id: $id})-[:HAS_ITERATION]->(i:Iteration)
          RETURN i ORDER BY i.number ASC`,
         { id }
@@ -100,7 +101,8 @@ async function getProject(id) {
       iterations: iterRes.records.map(r => r.get('i').properties)
     };
   } finally {
-    await session.close();
+    await s1.close();
+    await s2.close();
   }
 }
 
@@ -206,7 +208,9 @@ async function deleteProject(id) {
 
 const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') { json(res, 200, {}); return; }
-  if (req.method === 'GET' && req.url === '/health') { json(res, 200, { ok: true }); return; }
+  if (req.method === 'GET' && (req.url === '/health' || req.url === '/projects/health')) {
+    json(res, 200, { ok: true }); return;
+  }
 
   const r = route(req);
   if (!r) { json(res, 404, { error: 'Not found' }); return; }
