@@ -5,14 +5,14 @@ export default {
     extend: {
       colors: {
         borg: {
-          bg:      '#0a0f0a',
-          surface: '#111811',
-          panel:   '#162016',
-          border:  '#1f2e1f',
-          green:   '#22c55e',
-          dim:     '#4a7a4a',
-          muted:   '#6b8f6b',
-          text:    '#d4e8d4',
+          bg:      '#090b0f',
+          surface: '#0d1117',
+          panel:   '#111820',
+          border:  '#1c2433',
+          green:   '#00e5cc',
+          dim:     '#4a6080',
+          muted:   '#6b80a0',
+          text:    '#dde8f0',
         }
       },
       fontFamily: {
