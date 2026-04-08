@@ -6,7 +6,10 @@ export async function createSession(source = 'web') {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ source })
   })
-  const d = await r.json()
+  console.log('[hermes] createSession status:', r.status, r.statusText, r.url)
+  const text = await r.text()
+  console.log('[hermes] createSession body:', JSON.stringify(text.slice(0, 300)))
+  const d = JSON.parse(text)
   return d.session
 }
 
