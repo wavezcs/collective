@@ -2,16 +2,35 @@ import React from 'react'
 import ReactMarkdown from 'react-markdown'
 import { Wrench } from 'lucide-react'
 
-export function Message({ role, content, toolCalls = [] }) {
+const DRONE_AVATARS = {
+  locutus: '/avatars/locutus.svg',
+  seven:   '/avatars/seven.svg',
+  data:    '/avatars/data.svg',
+  hugh:    '/avatars/hugh.svg',
+}
+
+function Avatar({ drone = 'locutus', isUser }) {
+  if (isUser) {
+    return (
+      <div className="shrink-0 w-8 h-8 rounded flex items-center justify-center text-xs font-bold mt-0.5 bg-borg-border text-borg-muted">
+        U
+      </div>
+    )
+  }
+  const src = DRONE_AVATARS[drone] || DRONE_AVATARS.locutus
+  return (
+    <div className="shrink-0 w-8 h-8 rounded overflow-hidden mt-0.5 border border-borg-border">
+      <img src={src} alt={drone} className="w-full h-full object-cover" />
+    </div>
+  )
+}
+
+export function Message({ role, content, toolCalls = [], drone = 'locutus' }) {
   const isUser = role === 'user'
 
   return (
     <div className={`fade-in flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
-      {/* Avatar */}
-      <div className={`shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-bold mt-0.5
-        ${isUser ? 'bg-borg-border text-borg-muted' : 'bg-borg-panel border border-borg-border text-borg-green'}`}>
-        {isUser ? 'U' : 'L'}
-      </div>
+      <Avatar drone={drone} isUser={isUser} />
 
       <div className={`flex-1 min-w-0 space-y-1.5 ${isUser ? 'items-end' : 'items-start'} flex flex-col`}>
         {/* Tool calls */}
@@ -41,12 +60,10 @@ export function Message({ role, content, toolCalls = [] }) {
   )
 }
 
-export function StreamingMessage({ content, toolCalls = [], isStreaming }) {
+export function StreamingMessage({ content, toolCalls = [], isStreaming, drone = 'locutus' }) {
   return (
     <div className="fade-in flex gap-3">
-      <div className="shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-bold mt-0.5 bg-borg-panel border border-borg-border text-borg-green">
-        L
-      </div>
+      <Avatar drone={drone} isUser={false} />
       <div className="flex-1 min-w-0 space-y-1.5 flex flex-col items-start">
         {toolCalls.map((t, i) => (
           <div key={i} className="flex items-center gap-1.5 text-xs text-borg-dim bg-borg-panel border border-borg-border rounded px-2 py-1">

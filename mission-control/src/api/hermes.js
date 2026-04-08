@@ -72,13 +72,15 @@ export function streamChat(sessionId, message, { onDelta, onTool, onDone, onErro
         if (!data) continue
         try {
           const payload = JSON.parse(data)
-          if (event === 'assistant.delta') onDelta?.(payload.delta || '')
-          if (event === 'tool.started')    onTool?.(payload.tool_name, payload.preview)
-          if (event === 'tool.progress')   onDelta?.(payload.delta || '')
-          if (event === 'run.completed')   onDone?.(payload)
+          if (event === 'assistant.delta')   onDelta?.(payload.delta || '')
+          if (event === 'tool.started')      onTool?.(payload.tool_name, payload.preview)
+          if (event === 'tool.progress')     onDelta?.(payload.delta || '')
+          if (event === 'assistant.completed') { /* full content available if needed */ }
+          if (event === 'run.completed')     { onDone?.(payload); return }
         } catch { /* ignore malformed */ }
       }
     }
+    // Stream ended without run.completed — call onDone as fallback
     onDone?.()
   }).catch(err => {
     if (err.name !== 'AbortError') onError?.(err)
