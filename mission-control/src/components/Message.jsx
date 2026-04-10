@@ -1,5 +1,6 @@
 import React from 'react'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Wrench } from 'lucide-react'
 
 const DRONE_AVATARS = {
@@ -51,7 +52,7 @@ export function Message({ role, content, toolCalls = [], drone = 'locutus' }) {
             }`}>
             {isUser
               ? <span className="whitespace-pre-wrap">{content}</span>
-              : <div className="prose"><ReactMarkdown>{content}</ReactMarkdown></div>
+              : <div className="prose"><ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown></div>
             }
           </div>
         )}
@@ -74,7 +75,7 @@ export function StreamingMessage({ content, toolCalls = [], isStreaming, drone =
         ))}
         {(content || isStreaming) && (
           <div className="text-borg-text text-sm leading-relaxed">
-            <div className="prose"><ReactMarkdown>{content}</ReactMarkdown></div>
+            <div className="prose"><ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown></div>
             {isStreaming && <span className="cursor-blink text-borg-green ml-0.5">▋</span>}
           </div>
         )}

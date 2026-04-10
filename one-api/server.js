@@ -53,10 +53,15 @@ function checkAuth(req, res) {
   return true;
 }
 
+const CLAUDE_BIN = process.env.CLAUDE_BIN ||
+  ['/home/claude/.local/bin/claude', '/usr/local/bin/claude', '/usr/bin/claude']
+    .find(p => { try { require('fs').accessSync(p); return true; } catch { return false; } }) ||
+  'claude';
+
 function runClaude(prompt, cwd) {
-  return spawn('claude', ['--dangerously-skip-permissions', '-p', prompt], {
+  return spawn(CLAUDE_BIN, ['--dangerously-skip-permissions', '-p', prompt], {
     cwd: cwd || '/opt/collective',
-    env: process.env
+    env: { ...process.env, PATH: `/home/claude/.local/bin:${process.env.PATH}` }
   });
 }
 
