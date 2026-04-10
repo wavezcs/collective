@@ -213,7 +213,11 @@ export default function ProjectDetail({ project, onBack }) {
   }, [messages, streaming])
 
   useEffect(() => {
-    if (!startedRef.current && project.objective) {
+    if (project.hermes_session_id) {
+      // Already has a session — reconnect, don't restart
+      setSid(project.hermes_session_id)
+      startedRef.current = true
+    } else if (!startedRef.current && project.objective) {
       startedRef.current = true
       kickoff()
     }
@@ -356,7 +360,9 @@ export default function ProjectDetail({ project, onBack }) {
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
             {messages.length === 0 && !streaming && (
               <div className="text-center text-borg-dim text-xs py-8">
-                <div className="animate-pulse">Research loop running — see Live Activity →</div>
+                <div className="animate-pulse">
+                  {sessionId ? 'Research in progress — see Live Activity →' : 'Starting research loop…'}
+                </div>
               </div>
             )}
             {messages.map((m, i) => (
