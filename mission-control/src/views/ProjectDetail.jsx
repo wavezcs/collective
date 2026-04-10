@@ -227,22 +227,56 @@ export default function ProjectDetail({ project, onBack }) {
   const prevPollTime     = useRef(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [tokensPerSec, setTokensPerSec]  = useState(null)
+  const [staleSecs, setStaleSecs]        = useState(0)
+  const lastTokenChangeAt                = useRef(null)
+
+  // On each poll: detect generation and track last token movement
   useEffect(() => {
     if (!sessionInfo) return
     const cur = sessionInfo.output_tokens || 0
     const now = Date.now()
-    const generating = !sessionInfo.ended_at && cur > prevOutputTokens.current
-    setIsGenerating(generating)
-    if (generating && prevPollTime.current) {
-      const dt = (now - prevPollTime.current) / 1000
-      const dtok = cur - prevOutputTokens.current
-      setTokensPerSec(dt > 0 ? Math.round(dtok / dt) : null)
-    } else if (!generating) {
-      setTokensPerSec(null)
+    const moved = cur > prevOutputTokens.current
+
+    if (moved) {
+      lastTokenChangeAt.current = now
+      if (prevPollTime.current) {
+        const dt = (now - prevPollTime.current) / 1000
+        setTokensPerSec(dt > 0 ? Math.round((cur - prevOutputTokens.current) / dt) : null)
+      }
     }
+
+    const generating = !sessionInfo.ended_at && moved
+    setIsGenerating(generating)
+    if (!moved) setTokensPerSec(null)
+
     prevOutputTokens.current = cur
     prevPollTime.current = now
   }, [sessionInfo])
+
+  // Tick every second to update staleness display
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (lastTokenChangeAt.current) {
+        setStaleSecs(Math.floor((Date.now() - lastTokenChangeAt.current) / 1000))
+      }
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  // Stalled = session open, has tokens, but no movement for >30s
+  const isStalled = !!(
+    sessionInfo &&
+    !sessionInfo.ended_at &&
+    !isGenerating &&
+    (sessionInfo.output_tokens || 0) > 0 &&
+    lastTokenChangeAt.current &&
+    staleSecs > 30
+  )
+
+  function formatStaleDuration(s) {
+    if (s < 60) return `${s}s`
+    return `${Math.floor(s / 60)}m ${s % 60}s`
+  }
 
   // ── Derive display messages from Hermes + optimistic local ─────────────────
   // Hermes persisted: user + assistant messages with content
@@ -439,7 +473,10 @@ export default function ProjectDetail({ project, onBack }) {
               best score: {bestScore.toFixed(1)}
             </span>
           )}
-          {(busy || isGenerating) && <span className="text-borg-green animate-pulse">● running</span>}
+          {isStalled
+            ? <span className="text-red-400">⚠ stalled</span>
+            : (busy || isGenerating) && <span className="text-borg-green animate-pulse">● running</span>
+          }
         </div>
       </div>
 
@@ -495,6 +532,19 @@ export default function ProjectDetail({ project, onBack }) {
             }} />
           </div>
 
+          {/* Stall warning banner */}
+          {isStalled && (
+            <div className="mx-4 mb-2 px-3 py-2 rounded border border-red-500/40 bg-red-500/10 text-xs text-red-400 flex items-center justify-between gap-3">
+              <span>⚠ Session stalled — no token activity for {formatStaleDuration(staleSecs)}. The gateway may have restarted.</span>
+              <button
+                onClick={resubmit}
+                className="shrink-0 px-2 py-1 rounded border border-red-400/50 hover:bg-red-400/10 transition-colors whitespace-nowrap"
+              >
+                Resubmit
+              </button>
+            </div>
+          )}
+
           {/* Start Research prompt — shown after Locutus confirms the plan */}
           {phase === 'confirming' && !busy && displayMessages.some(m => m.role === 'assistant') && (
             <div className="px-4 pb-3 flex gap-2">
@@ -532,10 +582,21 @@ export default function ProjectDetail({ project, onBack }) {
               <div className="space-y-1.5 text-xs">
                 <div className="flex justify-between items-center">
                   <span className="text-borg-dim">Status</span>
-                  <span className={isGenerating ? 'text-borg-green font-medium' : sessionInfo.ended_at ? 'text-borg-muted' : 'text-borg-dim'}>
-                    {isGenerating ? '● Generating' : sessionInfo.ended_at ? 'Complete' : '○ Idle'}
+                  <span className={
+                    isGenerating  ? 'text-borg-green font-medium' :
+                    isStalled     ? 'text-red-400 font-medium' :
+                    sessionInfo.ended_at ? 'text-borg-muted' : 'text-borg-dim'
+                  }>
+                    {isGenerating  ? '● Generating' :
+                     isStalled     ? '⚠ Stalled' :
+                     sessionInfo.ended_at ? '✓ Complete' : '○ Idle'}
                   </span>
                 </div>
+                {isStalled && (
+                  <div className="text-red-400/80 text-xs">
+                    No activity for {formatStaleDuration(staleSecs)}
+                  </div>
+                )}
                 <div className="flex justify-between items-center">
                   <span className="text-borg-dim">Input tokens</span>
                   <span className="font-mono text-borg-text">{(sessionInfo.input_tokens || 0).toLocaleString()}</span>
