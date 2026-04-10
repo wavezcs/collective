@@ -16,10 +16,10 @@ body {
 ::-webkit-scrollbar-track { background: #111811; }
 ::-webkit-scrollbar-thumb { background: #1c2433; border-radius: 2px; }
 
-.prose { color: #dde8f0; max-width: none; }
+.prose { color: #dde8f0; max-width: none; font-family: 'Inter', system-ui, sans-serif; font-size: 13.5px; line-height: 1.65; }
 .prose p { margin: 0.4em 0; }
 .prose pre { background: #090b0f; border: 1px solid #1c2433; border-radius: 4px; padding: 0.75rem; overflow-x: auto; }
-.prose code { font-family: inherit; font-size: 12px; color: #00e5cc; }
+.prose code { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #00e5cc; }
 .prose pre code { color: #dde8f0; }
 .prose h1,.prose h2,.prose h3 { color: #00e5cc; font-weight: 600; margin: 0.75em 0 0.25em; }
 .prose ul,.prose ol { padding-left: 1.25rem; margin: 0.4em 0; }

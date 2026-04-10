@@ -225,10 +225,11 @@ export default function ProjectDetail({ project, onBack }) {
   // Detect active generation + compute tokens/s between polls
   const prevOutputTokens = useRef(0)
   const prevPollTime     = useRef(null)
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [tokensPerSec, setTokensPerSec]  = useState(null)
-  const [staleSecs, setStaleSecs]        = useState(0)
-  const lastTokenChangeAt                = useRef(null)
+  const [isGenerating, setIsGenerating]   = useState(false)
+  const [tokensPerSec, setTokensPerSec]   = useState(null)
+  const [staleSecs, setStaleSecs]         = useState(0)
+  const [stallDismissed, setStallDismissed] = useState(false)
+  const lastTokenChangeAt                  = useRef(null)
 
   // On each poll: detect generation and track last token movement
   useEffect(() => {
@@ -248,6 +249,8 @@ export default function ProjectDetail({ project, onBack }) {
     const generating = !sessionInfo.ended_at && moved
     setIsGenerating(generating)
     if (!moved) setTokensPerSec(null)
+    // Clear dismiss when tokens resume — stall is no longer relevant
+    if (moved) setStallDismissed(false)
 
     prevOutputTokens.current = cur
     prevPollTime.current = now
@@ -265,8 +268,9 @@ export default function ProjectDetail({ project, onBack }) {
 
   // Backend status is authoritative (updated every 30s by projects-api health monitor).
   // Frontend staleness is a fast fallback for the current browser session.
-  const backendStalled  = proj?.status === 'stalled'
-  const frontendStalled = !!(
+  // Neither applies during the confirming phase — session is idle by design.
+  const backendStalled  = phase !== 'confirming' && proj?.status === 'stalled'
+  const frontendStalled = phase !== 'confirming' && !!(
     sessionInfo &&
     !sessionInfo.ended_at &&
     !isGenerating &&
@@ -274,7 +278,7 @@ export default function ProjectDetail({ project, onBack }) {
     lastTokenChangeAt.current &&
     staleSecs > 30
   )
-  const isStalled = backendStalled || frontendStalled
+  const isStalled = !stallDismissed && (backendStalled || frontendStalled)
 
   function formatStaleDuration(s) {
     if (s < 60) return `${s}s`
@@ -358,14 +362,15 @@ export default function ProjectDetail({ project, onBack }) {
       `**Max iterations:** ${project.max_iterations || 10}`,
       ``,
       `Begin the autoresearch loop:`,
-      `1. Use Seven to research the topic thoroughly`,
-      `2. Use Data to draft the initial document`,
+      `1. Use delegate_task to assign deep research to Seven — give Seven a full research brief as the task`,
+      `2. Use Data (via delegate_task) to draft the initial document from Seven's findings`,
       `3. Use One (invoke via collective__one) to judge the output on a 1-10 scale for clarity, completeness, and persuasiveness`,
       `4. Iterate: identify the weakest section, improve it, re-judge`,
       `5. Keep changes that improve the score, revert those that don't`,
       `6. Stop after ${project.max_iterations || 10} iterations or when score ≥ 9`,
       `7. Deliver the final document`,
       ``,
+      `Important: do NOT use web_search with long prompts — web_search is for short keyword queries only. Use delegate_task for all substantial research.`,
       `After each iteration, summarize: iteration number, score, decision (KEEP/REVERT), and what changed.`,
     ].join('\n')
   }
@@ -537,13 +542,20 @@ export default function ProjectDetail({ project, onBack }) {
 
           {/* Stall warning banner */}
           {isStalled && (
-            <div className="mx-4 mb-2 px-3 py-2 rounded border border-red-500/40 bg-red-500/10 text-xs text-red-400 flex items-center justify-between gap-3">
-              <span>⚠ Session stalled — no token activity for {formatStaleDuration(staleSecs)}. The gateway may have restarted.</span>
+            <div className="mx-4 mb-2 px-3 py-2 rounded border border-red-500/40 bg-red-500/10 text-xs text-red-400 flex items-center gap-3">
+              <span className="flex-1">⚠ Session stalled — no token activity for {formatStaleDuration(staleSecs)}. The gateway may have restarted.</span>
               <button
                 onClick={resubmit}
                 className="shrink-0 px-2 py-1 rounded border border-red-400/50 hover:bg-red-400/10 transition-colors whitespace-nowrap"
               >
                 Resubmit
+              </button>
+              <button
+                onClick={() => setStallDismissed(true)}
+                className="shrink-0 text-red-400/60 hover:text-red-400 transition-colors px-1"
+                title="Dismiss"
+              >
+                ✕
               </button>
             </div>
           )}
