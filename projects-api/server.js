@@ -63,6 +63,18 @@ function route(req) {
 
 // ─── DB operations ───────────────────────────────────────────────────────────
 
+function serializeVal(v) {
+  return neo4j.isInt(v) ? v.toNumber() : v;
+}
+
+function serializeProps(props) {
+  const out = {};
+  for (const [k, v] of Object.entries(props)) {
+    out[k] = serializeVal(v);
+  }
+  return out;
+}
+
 async function listProjects() {
   const session = driver.session();
   try {
@@ -74,9 +86,9 @@ async function listProjects() {
        ORDER BY p.created_at DESC`
     );
     return result.records.map(r => ({
-      ...r.get('p').properties,
-      iteration_count: r.get('iteration_count').toNumber?.() ?? r.get('iteration_count'),
-      best_score: r.get('best_score')
+      ...serializeProps(r.get('p').properties),
+      iteration_count: serializeVal(r.get('iteration_count')),
+      best_score: serializeVal(r.get('best_score'))
     }));
   } finally {
     await session.close();
@@ -97,8 +109,8 @@ async function getProject(id) {
     ]);
     if (!projRes.records.length) return null;
     return {
-      ...projRes.records[0].get('p').properties,
-      iterations: iterRes.records.map(r => r.get('i').properties)
+      ...serializeProps(projRes.records[0].get('p').properties),
+      iterations: iterRes.records.map(r => serializeProps(r.get('i').properties))
     };
   } finally {
     await s1.close();
