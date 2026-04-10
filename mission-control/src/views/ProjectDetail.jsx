@@ -172,6 +172,8 @@ export default function ProjectDetail({ project, onBack }) {
   const [localMessages, setLocal] = useState([])   // optimistic user messages
   const [streaming, setStreaming] = useState(null)
   const [busy, setBusy]           = useState(false)
+  // 'confirming' = waiting for user to approve plan | 'running' = loop active
+  const [phase, setPhase]         = useState('confirming')
   const cancelRef                 = useRef()
   const startedRef                = useRef(false)
 
@@ -283,7 +285,9 @@ export default function ProjectDetail({ project, onBack }) {
   // ── Kickoff / reconnect on mount ───────────────────────────────────────────
   useEffect(() => {
     if (project.hermes_session_id) {
+      // Existing session — already past confirmation
       setSid(project.hermes_session_id)
+      setPhase('running')
       startedRef.current = true
     } else if (!startedRef.current && project.objective) {
       startedRef.current = true
@@ -292,6 +296,23 @@ export default function ProjectDetail({ project, onBack }) {
   }, [])
 
   // ── Helpers ────────────────────────────────────────────────────────────────
+  function buildConfirmationPrompt() {
+    return [
+      `# New Research Project Submitted`,
+      ``,
+      `**Name:** ${project.name}`,
+      `**Objective:** ${project.objective}`,
+      `**Max iterations:** ${project.max_iterations || 10}`,
+      ``,
+      `Before starting, please do the following:`,
+      `1. Restate what you understand this project to be — in your own words, not the user's`,
+      `2. Lay out your execution plan: which drones you'll use, what you'll research, how you'll structure the deliverable, and what success looks like`,
+      `3. Ask the user if they'd like to adjust anything before you begin`,
+      ``,
+      `Do NOT start the research loop yet. Wait for the user's confirmation.`,
+    ].join('\n')
+  }
+
   function buildKickoffPrompt() {
     return [
       `# Research Project: ${project.name}`,
@@ -312,7 +333,15 @@ export default function ProjectDetail({ project, onBack }) {
     ].join('\n')
   }
 
-  async function kickoff() { await send(buildKickoffPrompt(), true) }
+  async function kickoff() {
+    setPhase('confirming')
+    await send(buildConfirmationPrompt(), true)
+  }
+
+  async function startResearch(explicitSession = null) {
+    setPhase('running')
+    await send(buildKickoffPrompt(), true, explicitSession)
+  }
 
   async function ensureSession() {
     if (sid) return sid
@@ -366,12 +395,13 @@ export default function ProjectDetail({ project, onBack }) {
       await updateProject(project.id, { hermes_session_id: s.id })
       setLocal([])
       setStreaming(null)
+      setPhase('confirming')
       didInitScroll.current = false
       startedRef.current = true
       qc.invalidateQueries(['hermes-messages', s.id])
       qc.invalidateQueries(['project', project.id])
       qc.invalidateQueries(['projects'])
-      await send(buildKickoffPrompt(), true, s.id)
+      await send(buildConfirmationPrompt(), true, s.id)
     } catch (err) {
       console.error('[resubmit]', err)
     }
@@ -465,10 +495,25 @@ export default function ProjectDetail({ project, onBack }) {
             }} />
           </div>
 
+          {/* Start Research prompt — shown after Locutus confirms the plan */}
+          {phase === 'confirming' && !busy && displayMessages.some(m => m.role === 'assistant') && (
+            <div className="px-4 pb-3 flex gap-2">
+              <button
+                onClick={() => startResearch()}
+                className="flex-1 py-2 rounded border border-borg-green/60 bg-borg-green/10 text-borg-green
+                           text-sm font-medium hover:bg-borg-green/20 transition-colors"
+              >
+                Start Research
+              </button>
+            </div>
+          )}
+
           <MessageInput
             onSend={text => send(text)}
             disabled={busy}
-            placeholder="Direct the research, ask for changes…"
+            placeholder={phase === 'confirming'
+              ? 'Suggest changes, or click Start Research above…'
+              : 'Direct the research, ask for changes…'}
           />
         </div>
 
