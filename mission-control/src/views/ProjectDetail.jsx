@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getProject, updateProject } from '../api/projects'
-import { createSession, streamChat, getMessages } from '../api/hermes'
+import { createSession, streamChat, getMessages, getSession } from '../api/hermes'
 import { Message, StreamingMessage } from '../components/Message'
 import MessageInput from '../components/MessageInput'
 import SessionTree from '../components/SessionTree'
 import {
   ArrowLeft, Target, Repeat, CheckCircle, XCircle, Clock,
-  Search, Database, Cpu, List, Globe, RefreshCw, Zap, Brain
+  Search, Database, Cpu, List, Globe, RefreshCw, Zap, Brain, Activity
 } from 'lucide-react'
 
 // ─── Activity parsing ─────────────────────────────────────────────────────────
@@ -86,21 +86,57 @@ function ActivityItem({ activity }) {
   return null
 }
 
-function ActivityFeed({ sessionId, hermesMessages }) {
+function deriveCurrentStep(activities, sessionInfo, isGenerating) {
+  if (!sessionInfo) return null
+  if (sessionInfo.ended_at) return { label: 'Complete', dim: true }
+
+  if (isGenerating) {
+    // Find the most recent tool call to give context to what's being generated
+    const lastTool = [...activities].reverse().find(a => a.type === 'tool')
+    const context = lastTool ? `after ${TOOL_LABELS[lastTool.name] || lastTool.name}` : null
+    return { label: 'Generating response', context, active: true }
+  }
+
+  // Not generating — infer from last stored activity
+  const last = [...activities].reverse().find(a => a.type === 'tool' || a.type === 'thinking')
+  if (last?.type === 'tool') {
+    return { label: `Awaiting result`, context: TOOL_LABELS[last.name] || last.name, waiting: true }
+  }
+  return { label: 'Idle', dim: true }
+}
+
+function ActivityFeed({ hermesMessages, sessionInfo, isGenerating }) {
   const activities = parseActivities(hermesMessages)
-  if (!activities.length) return null
+  const currentStep = deriveCurrentStep(activities, sessionInfo, isGenerating)
+
   return (
     <div className="border border-borg-border rounded bg-borg-surface p-3">
       <div className="text-xs text-borg-dim mb-2 uppercase tracking-wider flex items-center gap-1.5">
         <Brain size={9} />
-        Live Activity
-        <span className="ml-auto w-1.5 h-1.5 rounded-full bg-borg-green animate-pulse" />
+        Activity
+        {isGenerating && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-borg-green animate-pulse" />}
       </div>
-      <div className="space-y-1.5 max-h-64 overflow-y-auto">
-        {activities.slice(-20).reverse().map((a, i) => (
-          <ActivityItem key={i} activity={a} />
-        ))}
-      </div>
+
+      {/* Current step */}
+      {currentStep && (
+        <div className={`flex items-start gap-1.5 text-xs mb-2 pb-2 border-b border-borg-border
+          ${currentStep.active ? 'text-borg-green' : currentStep.dim ? 'text-borg-dim' : 'text-borg-muted'}`}>
+          <span className={currentStep.active ? 'animate-pulse mt-0.5' : 'mt-0.5'}>●</span>
+          <div>
+            <div className="font-medium">{currentStep.label}</div>
+            {currentStep.context && <div className="text-borg-dim/70 mt-0.5">{currentStep.context}</div>}
+          </div>
+        </div>
+      )}
+
+      {/* History */}
+      {activities.length > 0 && (
+        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+          {activities.slice(-20).reverse().map((a, i) => (
+            <ActivityItem key={i} activity={a} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -170,10 +206,29 @@ export default function ProjectDetail({ project, onBack }) {
   const { data: hermesMessages = [] } = useQuery({
     queryKey: ['hermes-messages', sessionId],
     queryFn: () => getMessages(sessionId).then(d => d.items || []),
-    refetchInterval: busy ? false : 4000,  // pause polling while streaming (we handle onDone)
+    refetchInterval: busy ? false : 4000,
     enabled: !!sessionId,
     staleTime: 0,
   })
+
+  // ── Session token stats — poll every 5s ────────────────────────────────────
+  const { data: sessionInfo } = useQuery({
+    queryKey: ['session-info', sessionId],
+    queryFn: () => getSession(sessionId),
+    refetchInterval: 5000,
+    enabled: !!sessionId,
+    staleTime: 0,
+  })
+
+  // Detect active generation: output_tokens increasing between polls
+  const prevOutputTokens = useRef(0)
+  const [isGenerating, setIsGenerating] = useState(false)
+  useEffect(() => {
+    if (!sessionInfo) return
+    const cur = sessionInfo.output_tokens || 0
+    setIsGenerating(!sessionInfo.ended_at && cur > prevOutputTokens.current)
+    prevOutputTokens.current = cur
+  }, [sessionInfo])
 
   // ── Derive display messages from Hermes + optimistic local ─────────────────
   // Hermes persisted: user + assistant messages with content
@@ -342,7 +397,7 @@ export default function ProjectDetail({ project, onBack }) {
               best score: {bestScore.toFixed(1)}
             </span>
           )}
-          {busy && <span className="text-borg-green animate-pulse">● running</span>}
+          {(busy || isGenerating) && <span className="text-borg-green animate-pulse">● running</span>}
         </div>
       </div>
 
@@ -408,7 +463,38 @@ export default function ProjectDetail({ project, onBack }) {
         {/* Right panel */}
         <div className="w-64 shrink-0 border-l border-borg-border bg-borg-surface overflow-y-auto p-3 space-y-4">
           {sid && <SessionTree parentSessionId={sid} />}
-          {sessionId && <ActivityFeed sessionId={sessionId} hermesMessages={hermesMessages} />}
+
+          {/* Token stats */}
+          {sessionInfo && (
+            <div className="border border-borg-border rounded bg-borg-surface p-3">
+              <div className="text-xs text-borg-dim mb-2 uppercase tracking-wider flex items-center gap-1.5">
+                <Activity size={9} />
+                Session
+                {isGenerating && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-borg-green animate-pulse" />}
+              </div>
+              <div className="space-y-1.5 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-borg-dim">Status</span>
+                  <span className={isGenerating ? 'text-borg-green font-medium' : sessionInfo.ended_at ? 'text-borg-muted' : 'text-borg-dim'}>
+                    {isGenerating ? '● Generating' : sessionInfo.ended_at ? 'Complete' : '○ Idle'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-borg-dim">Input tokens</span>
+                  <span className="font-mono text-borg-text">{(sessionInfo.input_tokens || 0).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-borg-dim">Output tokens</span>
+                  <span className={`font-mono ${isGenerating ? 'text-borg-green' : 'text-borg-text'}`}>
+                    {(sessionInfo.output_tokens || 0).toLocaleString()}
+                    {isGenerating && ' ↑'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {sessionId && <ActivityFeed hermesMessages={hermesMessages} sessionInfo={sessionInfo} isGenerating={isGenerating} />}
           {iterations.length > 0 && (
             <div className="border border-borg-border rounded bg-borg-surface p-3">
               <div className="text-xs text-borg-dim mb-2 uppercase tracking-wider">Iterations</div>
