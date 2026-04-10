@@ -203,6 +203,19 @@ async function addIteration(projectId, data) {
   }
 }
 
+async function clearIterations(id) {
+  const session = driver.session();
+  try {
+    await session.run(
+      'MATCH (:Project {id: $id})-[:HAS_ITERATION]->(i:Iteration) DETACH DELETE i',
+      { id }
+    );
+    return true;
+  } finally {
+    await session.close();
+  }
+}
+
 async function deleteProject(id) {
   const session = driver.session();
   try {
@@ -257,6 +270,12 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && r.id && r.sub === 'iterations') {
       const body = await parseBody(req);
       json(res, 201, await addIteration(r.id, body));
+      return;
+    }
+    // DELETE /projects/:id/iterations
+    if (req.method === 'DELETE' && r.id && r.sub === 'iterations') {
+      await clearIterations(r.id);
+      json(res, 200, { ok: true });
       return;
     }
     // DELETE /projects/:id
