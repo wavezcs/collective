@@ -326,9 +326,14 @@ export default function ProjectDetail({ project, onBack }) {
   // ── Kickoff / reconnect on mount ───────────────────────────────────────────
   useEffect(() => {
     if (project.hermes_session_id) {
-      // Existing session — already past confirmation
       setSid(project.hermes_session_id)
-      setPhase('running')
+      // research_started_at is set when user clicks Start Research.
+      // If it's set, kickoff was sent. If not, session is still in confirmation.
+      if (project.research_started_at) {
+        setPhase('running')
+      } else {
+        setPhase('confirming')
+      }
       startedRef.current = true
     } else if (!startedRef.current && project.objective) {
       startedRef.current = true
@@ -345,14 +350,14 @@ export default function ProjectDetail({ project, onBack }) {
       `**Objective:** ${project.objective}`,
       `**Max iterations:** ${project.max_iterations || 10}`,
       ``,
-      `**Loop constraints (reflect these in your plan):**`,
-      `- You will research using web_search (short queries) and synthesize findings yourself`,
-      `- One (collective__one) will act as the judge — scoring each draft 1-10 and identifying weaknesses`,
-      `- You will not self-score; One's score is authoritative`,
+      `**How the loop works (reflect this accurately in your plan):**`,
+      `- You research using web_search (short keyword queries) and write the document yourself`,
+      `- After each draft, you call collective__one with the document text and ask One to score it 1-10 and identify the weakest section. One is the scorer only — it does not do research or writing.`,
+      `- You iterate based on One's feedback until score ≥ 9 or max iterations reached`,
       ``,
       `Before starting, please do the following:`,
       `1. Restate what you understand this project to be — in your own words, not the user's`,
-      `2. Lay out your execution plan: what you'll research, how you'll structure the deliverable, and what success looks like`,
+      `2. Lay out your execution plan: what topics you'll research, how you'll structure the deliverable, and what success looks like`,
       `3. Ask the user if they'd like to adjust anything before you begin`,
       ``,
       `Do NOT start the research loop yet. Wait for the user's confirmation.`,
