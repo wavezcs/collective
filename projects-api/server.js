@@ -293,3 +293,102 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, '0.0.0.0', () => console.log(`[projects-api] listening on :${PORT}`));
 process.on('SIGTERM', async () => { await driver.close(); process.exit(0); });
+
+// ─── Session health monitor ───────────────────────────────────────────────────
+
+const HERMES_API       = 'http://127.0.0.1:8642';
+const STALL_MS         = 3 * 60 * 1000;   // 3 minutes without token movement = stalled
+const HEALTH_INTERVAL  = 30 * 1000;        // check every 30 seconds
+
+async function getActiveProjects() {
+  const session = driver.session();
+  try {
+    const result = await session.run(
+      `MATCH (p:Project)
+       WHERE p.status IN ['active', 'stalled'] AND p.hermes_session_id IS NOT NULL
+       RETURN p.id AS id,
+              p.hermes_session_id AS session_id,
+              p.last_token_count  AS last_token_count,
+              p.last_token_at     AS last_token_at,
+              p.status            AS status`
+    );
+    return result.records.map(r => ({
+      id:               r.get('id'),
+      session_id:       r.get('session_id'),
+      last_token_count: serializeVal(r.get('last_token_count')) || 0,
+      last_token_at:    r.get('last_token_at'),
+      status:           r.get('status'),
+    }));
+  } finally {
+    await session.close();
+  }
+}
+
+async function setProjectHealth(id, status, tokenCount, tokenAt) {
+  const session = driver.session();
+  try {
+    await session.run(
+      `MATCH (p:Project {id: $id})
+       SET p.status            = $status,
+           p.last_token_count  = $tokenCount,
+           p.last_token_at     = $tokenAt`,
+      { id, status, tokenCount: neo4j.int(tokenCount), tokenAt }
+    );
+    console.log(`[health] ${id.slice(0,8)} → ${status} (tokens: ${tokenCount})`);
+  } finally {
+    await session.close();
+  }
+}
+
+async function runHealthCheck() {
+  let projects;
+  try {
+    projects = await getActiveProjects();
+  } catch (err) {
+    console.error('[health] failed to fetch projects:', err.message);
+    return;
+  }
+
+  for (const proj of projects) {
+    try {
+      const res = await fetch(`${HERMES_API}/api/sessions/${proj.session_id}`, {
+        signal: AbortSignal.timeout(10_000)
+      });
+      if (!res.ok) {
+        console.warn(`[health] Hermes returned ${res.status} for session ${proj.session_id}`);
+        continue;
+      }
+      const data = await res.json();
+      const s    = data.session || data;
+      const outputTokens = s.output_tokens || 0;
+      const now          = new Date().toISOString();
+
+      if (s.ended_at) {
+        await setProjectHealth(proj.id, 'complete', outputTokens, proj.last_token_at || now);
+        continue;
+      }
+
+      if (outputTokens > proj.last_token_count) {
+        // Tokens moving — alive
+        await setProjectHealth(proj.id, 'active', outputTokens, now);
+      } else {
+        // No token movement — check staleness
+        const lastAt = proj.last_token_at ? new Date(proj.last_token_at).getTime() : null;
+        const stale  = lastAt && (Date.now() - lastAt) > STALL_MS;
+        if (stale && proj.status !== 'stalled') {
+          await setProjectHealth(proj.id, 'stalled', outputTokens, proj.last_token_at);
+        }
+        // If last_token_at not yet set, initialise it so the clock starts
+        if (!lastAt) {
+          await setProjectHealth(proj.id, proj.status, outputTokens, now);
+        }
+      }
+    } catch (err) {
+      console.error(`[health] check failed for project ${proj.id}:`, err.message);
+    }
+  }
+}
+
+// Kick off health monitor
+setTimeout(runHealthCheck, 5_000);
+setInterval(runHealthCheck, HEALTH_INTERVAL);

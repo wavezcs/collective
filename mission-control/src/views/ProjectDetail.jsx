@@ -263,8 +263,10 @@ export default function ProjectDetail({ project, onBack }) {
     return () => clearInterval(timer)
   }, [])
 
-  // Stalled = session open, has tokens, but no movement for >30s
-  const isStalled = !!(
+  // Backend status is authoritative (updated every 30s by projects-api health monitor).
+  // Frontend staleness is a fast fallback for the current browser session.
+  const backendStalled  = proj?.status === 'stalled'
+  const frontendStalled = !!(
     sessionInfo &&
     !sessionInfo.ended_at &&
     !isGenerating &&
@@ -272,6 +274,7 @@ export default function ProjectDetail({ project, onBack }) {
     lastTokenChangeAt.current &&
     staleSecs > 30
   )
+  const isStalled = backendStalled || frontendStalled
 
   function formatStaleDuration(s) {
     if (s < 60) return `${s}s`
