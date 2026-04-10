@@ -362,15 +362,15 @@ export default function ProjectDetail({ project, onBack }) {
       `**Max iterations:** ${project.max_iterations || 10}`,
       ``,
       `Begin the autoresearch loop:`,
-      `1. Use delegate_task to assign deep research to Seven — give Seven a full research brief as the task`,
-      `2. Use Data (via delegate_task) to draft the initial document from Seven's findings`,
-      `3. Use One (invoke via collective__one) to judge the output on a 1-10 scale for clarity, completeness, and persuasiveness`,
-      `4. Iterate: identify the weakest section, improve it, re-judge`,
+      `1. Research: run multiple short web_search queries (each under 200 chars) and web_fetch relevant pages to gather material`,
+      `2. Draft: use collective__one to write the initial document — give One all research findings and ask it to produce the full draft`,
+      `3. Judge: use collective__one to score the draft 1-10 for clarity, completeness, and persuasiveness — ask for a score and specific weaknesses`,
+      `4. Iterate: identify the weakest section from One's feedback, improve it, re-judge with collective__one`,
       `5. Keep changes that improve the score, revert those that don't`,
       `6. Stop after ${project.max_iterations || 10} iterations or when score ≥ 9`,
       `7. Deliver the final document`,
       ``,
-      `Important: do NOT use web_search with long prompts — web_search is for short keyword queries only. Use delegate_task for all substantial research.`,
+      `Tool rules: web_search takes short keyword queries only (under 200 chars) — never a full research brief. Use collective__one for all heavy lifting: research synthesis, drafting, and judging.`,
       `After each iteration, summarize: iteration number, score, decision (KEEP/REVERT), and what changed.`,
     ].join('\n')
   }
@@ -382,6 +382,7 @@ export default function ProjectDetail({ project, onBack }) {
 
   async function startResearch(explicitSession = null) {
     setPhase('running')
+    await updateProject(project.id, { research_started_at: new Date().toISOString() })
     await send(buildKickoffPrompt(), true, explicitSession)
   }
 
@@ -431,7 +432,7 @@ export default function ProjectDetail({ project, onBack }) {
     if (busy) return
     try {
       await fetch(`/projects/${project.id}/iterations`, { method: 'DELETE' })
-      await updateProject(project.id, { status: 'active', best_score: null, hermes_session_id: null })
+      await updateProject(project.id, { status: 'active', best_score: null, hermes_session_id: null, research_started_at: null })
       const s = await createSession('web')
       setSid(s.id)
       await updateProject(project.id, { hermes_session_id: s.id })

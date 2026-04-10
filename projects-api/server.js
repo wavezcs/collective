@@ -306,7 +306,7 @@ async function getActiveProjects() {
     const result = await session.run(
       `MATCH (p:Project)
        WHERE p.status IN ['active', 'stalled'] AND p.hermes_session_id IS NOT NULL
-       AND EXISTS { (p)-[:HAS_ITERATION]->(:Iteration) }
+       AND p.research_started_at IS NOT NULL
        RETURN p.id AS id,
               p.hermes_session_id AS session_id,
               p.last_token_count  AS last_token_count,
