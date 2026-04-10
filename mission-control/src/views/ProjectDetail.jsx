@@ -220,14 +220,26 @@ export default function ProjectDetail({ project, onBack }) {
     staleTime: 0,
   })
 
-  // Detect active generation: output_tokens increasing between polls
+  // Detect active generation + compute tokens/s between polls
   const prevOutputTokens = useRef(0)
+  const prevPollTime     = useRef(null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [tokensPerSec, setTokensPerSec]  = useState(null)
   useEffect(() => {
     if (!sessionInfo) return
     const cur = sessionInfo.output_tokens || 0
-    setIsGenerating(!sessionInfo.ended_at && cur > prevOutputTokens.current)
+    const now = Date.now()
+    const generating = !sessionInfo.ended_at && cur > prevOutputTokens.current
+    setIsGenerating(generating)
+    if (generating && prevPollTime.current) {
+      const dt = (now - prevPollTime.current) / 1000
+      const dtok = cur - prevOutputTokens.current
+      setTokensPerSec(dt > 0 ? Math.round(dtok / dt) : null)
+    } else if (!generating) {
+      setTokensPerSec(null)
+    }
     prevOutputTokens.current = cur
+    prevPollTime.current = now
   }, [sessionInfo])
 
   // ── Derive display messages from Hermes + optimistic local ─────────────────
@@ -490,6 +502,12 @@ export default function ProjectDetail({ project, onBack }) {
                     {isGenerating && ' ↑'}
                   </span>
                 </div>
+                {tokensPerSec != null && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-borg-dim">Speed</span>
+                    <span className="font-mono text-borg-green">{tokensPerSec} tok/s</span>
+                  </div>
+                )}
               </div>
             </div>
           )}
