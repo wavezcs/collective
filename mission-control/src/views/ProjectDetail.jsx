@@ -399,8 +399,10 @@ export default function ProjectDetail({ project, onBack }) {
 
   async function startResearch(explicitSession = null) {
     setPhase('running')
-    await updateProject(project.id, { research_started_at: new Date().toISOString() })
-    await send(buildKickoffPrompt(), true, explicitSession)
+    await send(buildKickoffPrompt(), true, explicitSession, {
+      onDone: () => updateProject(project.id, { research_started_at: new Date().toISOString() }),
+      onError: () => setPhase('confirming'),
+    })
   }
 
   async function ensureSession() {
@@ -412,7 +414,7 @@ export default function ProjectDetail({ project, onBack }) {
     return s.id
   }
 
-  async function send(text, isSystem = false, explicitSession = null) {
+  async function send(text, isSystem = false, explicitSession = null, { onDone, onError: onErr } = {}) {
     if (busy) return
     const session = explicitSession || await ensureSession()
     if (!isSystem) setLocal(prev => [...prev, { role: 'user', content: text }])
@@ -436,11 +438,13 @@ export default function ProjectDetail({ project, onBack }) {
         qc.invalidateQueries(['project', project.id])
         qc.invalidateQueries(['projects'])
         qc.invalidateQueries(['children', session])
+        onDone?.()
       },
       onError: err => {
         setLocal(prev => [...prev, { role: 'assistant', content: `_Error: ${err.message}_` }])
         setStreaming(null)
         setBusy(false)
+        onErr?.(err)
       }
     })
   }
