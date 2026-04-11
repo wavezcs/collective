@@ -376,8 +376,24 @@ async function runHealthCheck() {
         // No token movement — check staleness
         const lastAt = proj.last_token_at ? new Date(proj.last_token_at).getTime() : null;
         const stale  = lastAt && (Date.now() - lastAt) > STALL_MS;
-        if (stale && proj.status !== 'stalled') {
-          await setProjectHealth(proj.id, 'stalled', outputTokens, proj.last_token_at);
+        if (stale) {
+          // Hermes never sets ended_at, so use iteration count as completion signal:
+          // if the project has recorded at least one iteration it finished its loop.
+          const iterSess = driver.session();
+          let iterCount = 0;
+          try {
+            const ir = await iterSess.run(
+              'MATCH (:Project {id: $id})-[:HAS_ITERATION]->(i:Iteration) RETURN count(i) AS n',
+              { id: proj.id }
+            );
+            iterCount = ir.records[0]?.get('n')?.toNumber?.() ?? 0;
+          } finally {
+            await iterSess.close();
+          }
+          const newStatus = iterCount > 0 ? 'complete' : 'stalled';
+          if (proj.status !== newStatus) {
+            await setProjectHealth(proj.id, newStatus, outputTokens, proj.last_token_at);
+          }
         }
         // If last_token_at not yet set, initialise it so the clock starts
         if (!lastAt) {

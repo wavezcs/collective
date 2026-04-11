@@ -1,31 +1,102 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
-  <rect width="40" height="40" rx="5" fill="#0d1117"/>
-  <!-- Face base -->
-  <ellipse cx="20" cy="19" rx="11" ry="12" fill="#1a2535"/>
-  <!-- Skin tone overlay -->
-  <ellipse cx="20" cy="19" rx="9" ry="10" fill="#2a3545" opacity="0.6"/>
-  <!-- Borg implant - left eye -->
-  <rect x="10" y="15" width="7" height="3" rx="0.5" fill="#00e5cc" opacity="0.9"/>
-  <rect x="10" y="14" width="7" height="1" rx="0.5" fill="#00b8a3"/>
-  <!-- Regular right eye -->
-  <ellipse cx="25" cy="16.5" rx="3" ry="2" fill="#1c2433"/>
-  <ellipse cx="25" cy="16.5" rx="1.5" ry="1.5" fill="#2a3545"/>
-  <circle cx="24.5" cy="16" r="0.5" fill="#4a6080" opacity="0.6"/>
-  <!-- Implant frame around left eye -->
-  <rect x="9" y="13" width="9" height="6" rx="1" fill="none" stroke="#00e5cc" stroke-width="0.6"/>
-  <!-- Vertical line through implant -->
-  <line x1="13.5" y1="13" x2="13.5" y2="19" stroke="#00b8a3" stroke-width="0.4"/>
+  <defs>
+    <linearGradient id="lc-skin" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#6a7878"/>
+      <stop offset="45%" stop-color="#8a9898"/>
+      <stop offset="100%" stop-color="#a8bcba"/>
+    </linearGradient>
+    <linearGradient id="lc-plate" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2a2e2e"/>
+      <stop offset="100%" stop-color="#1e2424"/>
+    </linearGradient>
+    <radialGradient id="lc-eye" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff2020" stop-opacity="0.95"/>
+      <stop offset="55%" stop-color="#991010"/>
+      <stop offset="100%" stop-color="#1a0000"/>
+    </radialGradient>
+    <radialGradient id="lc-collar" cx="50%" cy="0%" r="100%">
+      <stop offset="0%" stop-color="#2a2e2e"/>
+      <stop offset="100%" stop-color="#141818"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="40" height="40" rx="4" fill="#161e2a"/>
+
+  <!-- Neck -->
+  <rect x="15" y="28" width="10" height="6" fill="#7a8c8a"/>
+
+  <!-- Head base with skin gradient (lit from upper-right) -->
+  <ellipse cx="20" cy="18" rx="12" ry="13" fill="url(#lc-skin)"/>
+
+  <!-- Borg implant plate — covers left eye/cheek (viewer's left) -->
+  <path d="M8 10 Q9.5 7.5 14 7 L14 27 Q9 26 8 22 Z" fill="url(#lc-plate)"/>
+  <!-- Panel seams on implant -->
+  <line x1="8.8" y1="12.5" x2="14" y2="12.5" stroke="#141818" stroke-width="0.35"/>
+  <line x1="8.5" y1="15.5" x2="14" y2="15.5" stroke="#141818" stroke-width="0.35"/>
+  <line x1="8.5" y1="18.5" x2="14" y2="18.5" stroke="#141818" stroke-width="0.35"/>
+  <line x1="8.8" y1="21.5" x2="14" y2="21.5" stroke="#141818" stroke-width="0.35"/>
+  <!-- Implant edge highlight -->
+  <path d="M14 7 L14 27" stroke="#3a4040" stroke-width="0.5"/>
+
+  <!-- Ocular visor rail (arcing track above left eye) -->
+  <path d="M8 12.5 Q11 10.5 14 12" fill="none" stroke="#111111" stroke-width="1" stroke-linecap="round"/>
+
+  <!-- Ocular device — red scanner eye -->
+  <circle cx="11" cy="16.5" r="3" fill="#0a0a0a"/>
+  <circle cx="11" cy="16.5" r="2.3" fill="url(#lc-eye)"/>
+  <circle cx="11" cy="16.5" r="3" fill="none" stroke="#3a3a3a" stroke-width="0.7"/>
+  <!-- Ocular crosshairs -->
+  <line x1="11" y1="14.5" x2="11" y2="18.5" stroke="#ff000044" stroke-width="0.4"/>
+  <line x1="9" y1="16.5" x2="13" y2="16.5" stroke="#ff000044" stroke-width="0.4"/>
+
+  <!-- Cranial top modules (copper/bronze) -->
+  <rect x="8" y="7.5" width="4.5" height="1.8" rx="0.3" fill="#603820"/>
+  <rect x="8.3" y="5.8" width="3.5" height="1.8" rx="0.3" fill="#7a4a28"/>
+  <rect x="8.8" y="4.2" width="2.8" height="1.8" rx="0.3" fill="#8a5830"/>
+  <!-- Cylinder studs on top -->
+  <circle cx="9.3" cy="4.2" r="0.45" fill="#4a3018"/>
+  <circle cx="10.2" cy="4.2" r="0.45" fill="#4a3018"/>
+  <circle cx="11.1" cy="4.2" r="0.45" fill="#4a3018"/>
+  <!-- Module detail lines -->
+  <line x1="8" y1="7.5" x2="12.5" y2="7.5" stroke="#3a2010" stroke-width="0.3"/>
+  <line x1="8.3" y1="5.8" x2="11.8" y2="5.8" stroke="#3a2010" stroke-width="0.3"/>
+
+  <!-- Right eye — organic, flat expression -->
+  <ellipse cx="25.5" cy="16" rx="3.2" ry="2.2" fill="#5a6a68"/>
+  <ellipse cx="25.5" cy="16" rx="2.2" ry="1.6" fill="#2a1e1c"/>
+  <circle cx="25.5" cy="16" r="1.2" fill="#0e0a0a"/>
+  <!-- Catch light -->
+  <circle cx="26.2" cy="15.4" r="0.5" fill="#a8bcba" opacity="0.45"/>
+
+  <!-- Brow ridge shadows -->
+  <path d="M9 11 Q14 9.5 19 11" stroke="#6a7878" stroke-width="0.6" fill="none" opacity="0.5"/>
+  <path d="M22 11 Q26 9.5 30 11" stroke="#7a8c8a" stroke-width="0.6" fill="none" opacity="0.5"/>
+
   <!-- Nose -->
-  <path d="M19 20 L18 23 L22 23" stroke="#4a6080" stroke-width="0.5" fill="none"/>
-  <!-- Mouth - stern line -->
-  <path d="M15 26 Q20 27 25 26" stroke="#4a6080" stroke-width="0.6" fill="none"/>
-  <!-- Chin implant -->
-  <rect x="17" y="27" width="6" height="1.5" rx="0.5" fill="#1c2433" stroke="#00e5cc" stroke-width="0.3"/>
-  <!-- Left temple cables -->
-  <path d="M9 16 C6 14 5 18 7 20" stroke="#00e5cc" stroke-width="0.6" fill="none" opacity="0.7"/>
-  <path d="M9 18 C6 17 5 20 7 22" stroke="#1c2433" stroke-width="0.4" fill="none"/>
-  <!-- Head top detail -->
-  <path d="M13 7 Q20 5 27 7" stroke="#1c2433" stroke-width="0.5" fill="none"/>
-  <!-- Small designation text -->
-  <text x="20" y="37.5" font-size="3.5" fill="#00e5cc" text-anchor="middle" font-family="monospace" opacity="0.8" letter-spacing="0.5">LOCUTUS</text>
+  <path d="M19.5 20.5 L19 23.5 L22 23.5" stroke="#6a7878" stroke-width="0.55" fill="none" stroke-linecap="round"/>
+
+  <!-- Mouth — slight unsettling near-smile, left corner raised -->
+  <path d="M15.5 26.5 Q18 28 22 27.5 Q24.5 27 25.5 26.5" stroke="#5a6868" stroke-width="0.65" fill="none" stroke-linecap="round"/>
+
+  <!-- Corrugated tube 1 — curves up from right neck -->
+  <path d="M30 23 C34 21 35 15 32 11" stroke="#0e0e0e" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+  <!-- Tube ribbing -->
+  <path d="M30.5 22 C34.2 20 35.2 14.5 32.3 11.5" stroke="#2a2a2a" stroke-width="0.5" fill="none"/>
+  <path d="M29.5 23 C33.8 21 34.8 15.5 31.7 11" stroke="#2a2a2a" stroke-width="0.5" fill="none"/>
+
+  <!-- Corrugated tube 2 — curves down from right neck -->
+  <path d="M31 26 C35 28 36 34 35 40" stroke="#0e0e0e" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+  <path d="M30.5 26 C34.5 28.5 35.5 34.5 34.5 40" stroke="#252525" stroke-width="0.4" fill="none"/>
+
+  <!-- Borg suit collar -->
+  <path d="M8 29 Q20 34 32 29 L34 40 L6 40 Z" fill="url(#lc-collar)"/>
+  <!-- Collar panel seams -->
+  <line x1="11" y1="31" x2="9" y2="40" stroke="#101414" stroke-width="0.4"/>
+  <line x1="17" y1="33" x2="16" y2="40" stroke="#101414" stroke-width="0.4"/>
+  <line x1="23" y1="33" x2="24" y2="40" stroke="#101414" stroke-width="0.4"/>
+  <line x1="29" y1="31" x2="31" y2="40" stroke="#101414" stroke-width="0.4"/>
+
+  <!-- Designation -->
+  <text x="20" y="38.5" font-size="2.8" fill="#8b1010" text-anchor="middle" font-family="monospace" letter-spacing="0.5" opacity="0.9">LOCUTUS</text>
 </svg>
