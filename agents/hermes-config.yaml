@@ -56,6 +56,8 @@ mcp_servers:
   collective:
     command: node
     args: ["/opt/collective/mcp/server.js"]
+    timeout: 600        # One (claude) can take several minutes — raise from default 120s
+    connect_timeout: 30
 
 auxiliary:
   vision:

@@ -97,6 +97,15 @@ const server = http.createServer(async (req, res) => {
 
     const prompt = buildPrompt(task, context);
     const proc   = runClaude(prompt, working_directory);
+    let responded = false;
+
+    // Kill claude if the caller disconnects — prevents zombie processes stacking up
+    req.on('close', () => {
+      if (!responded) {
+        console.log('[one-api] client disconnected — killing claude process');
+        proc.kill('SIGTERM');
+      }
+    });
 
     let stdout = '';
     let stderr = '';
@@ -104,6 +113,8 @@ const server = http.createServer(async (req, res) => {
     proc.stderr.on('data', d => stderr += d);
 
     proc.on('close', code => {
+      if (responded) return;
+      responded = true;
       res.writeHead(200, { 'Content-Type': 'application/json' });
       if (code === 0) {
         res.end(JSON.stringify({ result: `[One]\n${stdout.trim()}` }));
@@ -113,6 +124,8 @@ const server = http.createServer(async (req, res) => {
     });
 
     proc.on('error', err => {
+      if (responded) return;
+      responded = true;
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: err.message }));
     });
