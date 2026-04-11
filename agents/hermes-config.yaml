@@ -3,7 +3,7 @@
 # SOUL.md is generated from agents/locutus/designation.md + agents/unimatrix.md
 
 model:
-  default: "qwen3.5:35b-a3b"
+  default: "qwen3:30b"
   provider: "custom"
   base_url: "http://ollama.csdyn.com:11434/v1"
   api_key: "ollama"
@@ -26,7 +26,7 @@ compression:
   threshold: 0.70
   target_ratio: 0.20
   protect_last_n: 20
-  summary_model: "qwen3.5:27b"
+  summary_model: "qwen3:30b"
   summary_provider: "main"
 
 delegation:
