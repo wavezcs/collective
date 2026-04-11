@@ -290,7 +290,7 @@ export default function ProjectDetail({ project, onBack }) {
   // Kickoff prompt is shown as a compact header item, not a full user bubble
   const displayMessages = useMemo(() => {
     const persisted = hermesMessages
-      .filter(m => (m.role === 'user' || m.role === 'assistant') && m.content)
+      .filter(m => (m.role === 'user' || m.role === 'assistant') && m.content && m.content !== '(empty)')
       .map(m => ({
         id: m.id,
         role: m.role,
@@ -377,16 +377,16 @@ export default function ProjectDetail({ project, onBack }) {
       `**Loop structure (repeat until score ≥ 9 or ${project.max_iterations || 10} iterations):**`,
       ``,
       `1. **Research** — call web_search with short keyword queries (under 150 chars). Summarize findings in 2-3 sentences. Do NOT paste raw results.`,
-      `2. **Draft** — write or revise the document in your response text, then WITHOUT stopping, immediately call collective__one in the same turn.`,
-      `3. **Judge** — call collective__one (do NOT end your turn after the draft — chain straight into this tool call). Pass the full document, the objective, and ask One to score 1-10 and identify the weakest section.`,
-      `4. **Record** — call collective__projects immediately after receiving One's score (no text before the tool call):`,
+      `2. **Draft** — write or revise the document. Then immediately call collective__one — do NOT stop or wait for the user.`,
+      `3. **Judge** — call collective__one with the full document text and ask One to score 1-10 and identify the weakest section. No narration before the call.`,
+      `4. **Record** — call collective__projects immediately after receiving One's score:`,
       `   operation: record_iteration | project_id: ${project.id} | score: [One's score] | decision: keep OR revert | judge_reasoning: [One's feedback] | summary: [one sentence]`,
       `5. **Decide** — tell the user: iteration #, score, KEEP/REVERT, one sentence on what changed. Then start the next iteration or stop if done.`,
       `6. **Complete** — when the loop exits (score ≥ 9 OR max iterations reached), call collective__projects immediately:`,
       `   operation: update_status | project_id: ${project.id} | status: complete`,
       ``,
       `**CRITICAL RULES:**`,
-      `- Steps 2 and 3 happen in the SAME response turn — write the draft then call collective__one without stopping`,
+      `- After drafting, the very next action is calling collective__one — do not output the draft as a standalone response`,
       `- Never write "Now I will..." or any narration before a tool call — execute immediately`,
       `- After the Decide step, do NOT stop or wait. Go directly to step 1 of the next iteration`,
       `- Keep looping until score >= 9 OR you have completed ${project.max_iterations || 10} iterations`,
