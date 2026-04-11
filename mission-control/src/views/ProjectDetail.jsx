@@ -382,19 +382,21 @@ export default function ProjectDetail({ project, onBack }) {
       `4. **Record** — call collective__projects immediately after receiving One's score (no text before the tool call):`,
       `   operation: record_iteration | project_id: ${project.id} | score: [One's score] | decision: keep OR revert | judge_reasoning: [One's feedback] | summary: [one sentence]`,
       `5. **Decide** — tell the user: iteration #, score, KEEP/REVERT, one sentence on what changed. Then start the next iteration or stop if done.`,
+      `6. **Complete** — when the loop exits (score ≥ 9 OR max iterations reached), call collective__projects immediately:`,
+      `   operation: update_status | project_id: ${project.id} | status: complete`,
       ``,
       `**CRITICAL RULES:**`,
       `- Steps 2 and 3 happen in the SAME response turn — write the draft then call collective__one without stopping`,
       `- Never write "Now I will..." or any narration before a tool call — execute immediately`,
       `- After the Decide step, do NOT stop or wait. Go directly to step 1 of the next iteration`,
       `- Keep looping until score >= 9 OR you have completed ${project.max_iterations || 10} iterations`,
-      `- Only stop when one of those two conditions is met`,
+      `- Step 6 is MANDATORY — always call update_status:complete when the loop ends, no exceptions`,
       ``,
       `**Rules:**`,
       `- web_search queries must be short keywords, never full paragraphs`,
       `- Summarize research — never paste raw search results`,
       `- One judges only — all research and drafting is yours`,
-      `- After delivering the final document, stop`,
+      `- After step 6, stop`,
     ].join('\n')
   }
 

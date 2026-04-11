@@ -297,7 +297,7 @@ process.on('SIGTERM', async () => { await driver.close(); process.exit(0); });
 // ─── Session health monitor ───────────────────────────────────────────────────
 
 const HERMES_API       = 'http://127.0.0.1:8642';
-const STALL_MS         = 3 * 60 * 1000;   // 3 minutes without token movement = stalled
+const STALL_MS         = 90 * 1000;        // 90 seconds without token movement = stalled
 const HEALTH_INTERVAL  = 30 * 1000;        // check every 30 seconds
 
 async function getActiveProjects() {
