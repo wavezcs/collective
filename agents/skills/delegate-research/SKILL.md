@@ -1,34 +1,23 @@
 # delegate-research
 
-Delegate a research or technical task to a specialist subagent (Seven, Data, or Hugh).
+Delegate a research or technical task to a specialist subagent (Seven or Hugh).
 
 ## When to use
-- Research, news, competitive analysis → Seven
-- Code review, debugging, architecture, infrastructure → Data
+- Research, news, competitive analysis, code review, debugging, architecture, infrastructure → Seven
 - Personal tasks, scheduling, family logistics → Hugh
 
 ## How to delegate
 
 Use Hermes's delegate_task tool:
 
-### Research task → Seven
+### Research or technical task → Seven
 ```
 tool: delegate_task
 args:
-  task: "<research question or investigation>"
+  task: "<research question, investigation, code review, or technical problem>"
   context: "<any relevant background>"
   model: "qwen3.5:27b"
   agent_name: "Seven"
-```
-
-### Technical/code task → Data
-```
-tool: delegate_task
-args:
-  task: "<technical question, code review, or debugging task>"
-  context: "<relevant code, error messages, or context>"
-  model: "qwen2.5-coder:14b"
-  agent_name: "Data"
 ```
 
 ### Personal/family task → Hugh

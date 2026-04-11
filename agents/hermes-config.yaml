@@ -19,7 +19,7 @@ terminal:
 agent:
   max_turns: 60
   verbose: false
-  reasoning_effort: "low"
+  reasoning_effort: "medium"
 
 compression:
   enabled: true
