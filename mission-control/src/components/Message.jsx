@@ -13,14 +13,14 @@ const DRONE_AVATARS = {
 function Avatar({ drone = 'locutus', isUser }) {
   if (isUser) {
     return (
-      <div className="shrink-0 w-8 h-8 rounded flex items-center justify-center text-xs font-bold mt-0.5 bg-borg-border text-borg-muted">
+      <div className="shrink-0 w-10 h-10 rounded flex items-center justify-center text-xs font-bold mt-0.5 bg-borg-border text-borg-muted">
         U
       </div>
     )
   }
   const src = DRONE_AVATARS[drone] || DRONE_AVATARS.locutus
   return (
-    <div className="shrink-0 w-8 h-8 rounded overflow-hidden mt-0.5 border border-borg-border">
+    <div className="shrink-0 w-10 h-10 rounded overflow-hidden mt-0.5 border border-borg-border">
       <img src={src} alt={drone} className="w-full h-full object-cover" />
     </div>
   )
