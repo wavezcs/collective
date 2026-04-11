@@ -75,6 +75,40 @@ async function runVinculum(args) {
   }
 }
 
+async function runProjects(args) {
+  const { PROJECTS_API_URL = 'http://localhost:3002' } = config.GENERAL;
+  const { operation, project_id, score, decision, judge_reasoning, summary, session_id } = args;
+
+  if (operation === 'record_iteration') {
+    if (!project_id) return 'Error: project_id required';
+    const body = { score, decision, judge_reasoning, summary, session_id };
+    const res = await fetch(`${PROJECTS_API_URL}/projects/${project_id}/iterations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10_000)
+    });
+    const data = await res.json();
+    return data.id ? `Iteration #${data.number} recorded (score: ${score}, decision: ${decision})` : `Error: ${JSON.stringify(data)}`;
+  }
+
+  if (operation === 'update_status') {
+    if (!project_id) return 'Error: project_id required';
+    const body = {};
+    if (args.status) body.status = args.status;
+    if (args.artifact) body.artifact = args.artifact;
+    await fetch(`${PROJECTS_API_URL}/projects/${project_id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10_000)
+    });
+    return `Project ${project_id} updated`;
+  }
+
+  return `Error: unknown operation "${operation}"`;
+}
+
 async function runOne(args) {
   const { ONE_API_URL, ONE_API_KEY } = config.GENERAL;
   const { task, context = '', working_directory = '/opt/collective' } = args;
@@ -113,6 +147,25 @@ const TOOLS = [
         to_name:      { type: 'string' }
       },
       required: ['operation']
+    }
+  },
+  {
+    name: 'projects',
+    description: 'Record research project iterations and update project status in Mission Control.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        operation:      { type: 'string', enum: ['record_iteration', 'update_status'] },
+        project_id:     { type: 'string' },
+        score:          { type: 'number' },
+        decision:       { type: 'string', enum: ['keep', 'revert', 'pending'] },
+        judge_reasoning:{ type: 'string' },
+        summary:        { type: 'string' },
+        session_id:     { type: 'string' },
+        status:         { type: 'string' },
+        artifact:       { type: 'string' }
+      },
+      required: ['operation', 'project_id']
     }
   },
   {
@@ -158,6 +211,7 @@ async function handleRequest(msg) {
     try {
       let text;
       if (name === 'vinculum') text = await runVinculum(args);
+      else if (name === 'projects') text = await runProjects(args);
       else if (name === 'one') text = await runOne(args);
       else text = `Error: unknown tool "${name}"`;
       return send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text }] } });
