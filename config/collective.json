@@ -16,10 +16,8 @@
     "TELEGRAM_ALLOWED_USERS": [8771388267]
   },
   "MODELS": {
-    "locutus": "qwen3.5:35b-a3b",
-    "seven": "qwen3.5:27b",
-    "data_general": "qwen3.5:27b",
-    "data_code": "qwen2.5-coder:14b",
+    "locutus": "qwen3:30b-32k",
+    "seven": "qwen3:30b-32k",
     "hugh": "hermes3:latest",
     "vinculum_embed": "nomic-embed-text:latest"
   },

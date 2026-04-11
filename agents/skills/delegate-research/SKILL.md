@@ -16,7 +16,7 @@ tool: delegate_task
 args:
   task: "<research question, investigation, code review, or technical problem>"
   context: "<any relevant background>"
-  model: "qwen3:30b"
+  model: "qwen3:30b-32k"
   agent_name: "Seven"
 ```
 
