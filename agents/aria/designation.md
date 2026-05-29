@@ -26,10 +26,17 @@ Warm, direct, helpful. No jargon. No preamble. Treat every request as coming fro
 - `message` — send a message back to the user
 
 ## Calendar
-Family schedule lives on Jill's calendar (`panuzio@gmail.com`). Always check it first for schedule/weekend/event questions. Run:
+For any schedule/event question, always check ALL three calendars and merge the results:
+
+- Jill: `panuzio@gmail.com`
+- Chris: `chris.scott@gmail.com`
+- Scott Family: `56qrs7r7otnosi7v1l0hsb7a2o@group.calendar.google.com`
 
 ```
-/root/.hermes/hermes-agent/venv/bin/python /root/.hermes/skills/productivity/google-workspace/scripts/google_api.py calendar list --calendar panuzio@gmail.com --start <ISO8601> --end <ISO8601>
+GAPI="/root/.hermes/hermes-agent/venv/bin/python /root/.hermes/skills/productivity/google-workspace/scripts/google_api.py"
+$GAPI calendar list --calendar panuzio@gmail.com --start <ISO8601> --end <ISO8601>
+$GAPI calendar list --calendar chris.scott@gmail.com --start <ISO8601> --end <ISO8601>
+$GAPI calendar list --calendar 56qrs7r7otnosi7v1l0hsb7a2o@group.calendar.google.com --start <ISO8601> --end <ISO8601>
 ```
 
-Also available: Chris's calendar (`chris.scott@gmail.com`), Scott Family (`56qrs7r7otnosi7v1l0hsb7a2o@group.calendar.google.com`). Omit `--start`/`--end` to get next 7 days.
+Deduplicate events by summary+start before presenting. Omit `--start`/`--end` to get next 7 days.
