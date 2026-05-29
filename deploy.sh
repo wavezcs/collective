@@ -52,6 +52,11 @@ rsync -az --delete \
   /opt/collective/ root@$REMOTE_HOST:$REMOTE_DIR/
 ok "Sync complete"
 
+# ─── 2b. Push CLAUDE.md to vault so Syncthing distributes it ────────────────
+log "Pushing CLAUDE.md to vault..."
+ssh root@$REMOTE_HOST "cp /opt/collective/CLAUDE.md /opt/vault/CLAUDE.md"
+ok "CLAUDE.md → /opt/vault/"
+
 # ─── 3. Remote setup ────────────────────────────────────────────────────────
 log "Running remote setup on $REMOTE_HOST..."
 
