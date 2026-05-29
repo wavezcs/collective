@@ -113,7 +113,7 @@ export default function ChatView({ sessionId, onSessionCreated }) {
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-borg-border bg-borg-surface shrink-0">
           <div>
-            <div className="text-borg-green font-semibold text-sm">Locutus</div>
+            <div className="text-borg-green font-semibold text-sm">Aria</div>
             <div className="text-borg-dim text-xs">{sid ? sid.slice(0, 16) + '…' : 'New session'}</div>
           </div>
           <div className="flex items-center gap-2">
@@ -122,7 +122,7 @@ export default function ChatView({ sessionId, onSessionCreated }) {
                 onClick={() => setShowTree(t => !t)}
                 className="text-xs text-borg-dim hover:text-borg-text px-2 py-1 rounded border border-borg-border hover:border-borg-green/40 transition-colors"
               >
-                {showTree ? 'Hide' : 'Show'} agents
+                {showTree ? 'Hide' : 'Show'} activity
               </button>
             )}
             <button
@@ -138,10 +138,12 @@ export default function ChatView({ sessionId, onSessionCreated }) {
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
           {messages.length === 0 && !streaming && (
             <div className="flex flex-col items-center justify-center h-full text-borg-dim text-center space-y-3">
-              <div className="text-4xl opacity-20">◈</div>
+              <div className="shrink-0 w-14 h-14 rounded-xl overflow-hidden opacity-80">
+                <img src="/avatars/aria.svg" alt="Aria" className="w-full h-full object-cover" />
+              </div>
               <div>
-                <div className="text-borg-muted">The Collective awaits.</div>
-                <div className="text-xs mt-1">Ask Locutus anything, or start a research project.</div>
+                <div className="text-borg-muted font-medium">Hi, I'm Aria.</div>
+                <div className="text-xs mt-1 text-borg-dim">Ask me anything, or start a research project.</div>
               </div>
             </div>
           )}

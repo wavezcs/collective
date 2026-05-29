@@ -6,26 +6,26 @@
 
 body {
   margin: 0;
-  background: #090b0f;
-  color: #dde8f0;
+  background: #09090f;
+  color: #ede9f8;
   font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
   font-size: 13px;
 }
 
 ::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: #111811; }
-::-webkit-scrollbar-thumb { background: #1c2433; border-radius: 2px; }
+::-webkit-scrollbar-track { background: #0e0d18; }
+::-webkit-scrollbar-thumb { background: #1e1c35; border-radius: 2px; }
 
 .prose { color: #dde8f0; max-width: none; font-family: 'Inter', system-ui, sans-serif; font-size: 13.5px; line-height: 1.65; }
 .prose p { margin: 0.4em 0; }
 .prose pre { background: #090b0f; border: 1px solid #1c2433; border-radius: 4px; padding: 0.75rem; overflow-x: auto; }
-.prose code { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #00e5cc; }
-.prose pre code { color: #dde8f0; }
-.prose h1,.prose h2,.prose h3 { color: #00e5cc; font-weight: 600; margin: 0.75em 0 0.25em; }
+.prose code { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #a78bfa; }
+.prose pre code { color: #ede9f8; }
+.prose h1,.prose h2,.prose h3 { color: #a78bfa; font-weight: 600; margin: 0.75em 0 0.25em; }
 .prose ul,.prose ol { padding-left: 1.25rem; margin: 0.4em 0; }
 .prose li { margin: 0.2em 0; }
-.prose strong { color: #00b8a3; font-weight: 600; }
-.prose a { color: #00e5cc; }
+.prose strong { color: #c4b5fd; font-weight: 600; }
+.prose a { color: #a78bfa; }
 .prose blockquote { border-left: 2px solid #1c2433; padding-left: 0.75rem; color: #4a6080; margin: 0.5em 0; }
 .prose table { border-collapse: collapse; width: 100%; margin: 0.5em 0; }
 .prose th,.prose td { border: 1px solid #1c2433; padding: 0.3rem 0.6rem; }

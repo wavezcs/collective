@@ -3,35 +3,27 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Wrench } from 'lucide-react'
 
-const DRONE_AVATARS = {
-  locutus: '/avatars/locutus.svg',
-  seven:   '/avatars/seven.svg',
-  data:    '/avatars/data.svg',
-  hugh:    '/avatars/hugh.svg',
-}
-
-function Avatar({ drone = 'locutus', isUser }) {
+function Avatar({ isUser }) {
   if (isUser) {
     return (
-      <div className="shrink-0 w-10 h-10 rounded flex items-center justify-center text-xs font-bold mt-0.5 bg-borg-border text-borg-muted">
-        U
+      <div className="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold mt-0.5 bg-borg-border text-borg-muted">
+        you
       </div>
     )
   }
-  const src = DRONE_AVATARS[drone] || DRONE_AVATARS.locutus
   return (
-    <div className="shrink-0 w-10 h-10 rounded overflow-hidden mt-0.5 border border-borg-border">
-      <img src={src} alt={drone} className="w-full h-full object-cover" />
+    <div className="shrink-0 w-10 h-10 rounded-lg overflow-hidden mt-0.5">
+      <img src="/avatars/aria.svg" alt="Aria" className="w-full h-full object-cover" />
     </div>
   )
 }
 
-export function Message({ role, content, toolCalls = [], drone = 'locutus' }) {
+export function Message({ role, content, toolCalls = [] }) {
   const isUser = role === 'user'
 
   return (
     <div className={`fade-in flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
-      <Avatar drone={drone} isUser={isUser} />
+      <Avatar isUser={isUser} />
 
       <div className={`flex-1 min-w-0 space-y-1.5 ${isUser ? 'items-end' : 'items-start'} flex flex-col`}>
         {/* Tool calls */}
@@ -61,10 +53,10 @@ export function Message({ role, content, toolCalls = [], drone = 'locutus' }) {
   )
 }
 
-export function StreamingMessage({ content, toolCalls = [], isStreaming, drone = 'locutus' }) {
+export function StreamingMessage({ content, toolCalls = [], isStreaming }) {
   return (
     <div className="fade-in flex gap-3">
-      <Avatar drone={drone} isUser={false} />
+      <Avatar isUser={false} />
       <div className="flex-1 min-w-0 space-y-1.5 flex flex-col items-start">
         {toolCalls.map((t, i) => (
           <div key={i} className="flex items-center gap-1.5 text-xs text-borg-dim bg-borg-panel border border-borg-border rounded px-2 py-1">

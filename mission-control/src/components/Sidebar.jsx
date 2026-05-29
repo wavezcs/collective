@@ -1,5 +1,5 @@
 import React from 'react'
-import { MessageSquare, FolderKanban, Cpu } from 'lucide-react'
+import { MessageSquare, FolderKanban, Sparkles } from 'lucide-react'
 
 export default function Sidebar({ view, onChat, onProjects }) {
   const btn = (label, icon, active, onClick) => (
@@ -21,12 +21,12 @@ export default function Sidebar({ view, onChat, onProjects }) {
       {/* Logo */}
       <div className="px-4 py-4 border-b border-borg-border">
         <div className="flex items-center gap-2">
-          <Cpu size={16} className="text-borg-green" />
+          <Sparkles size={15} className="text-borg-green" />
           <span className="text-borg-green font-semibold tracking-wider text-xs uppercase">
-            Mission Control
+            2B
           </span>
         </div>
-        <div className="text-borg-dim text-xs mt-0.5">The Collective</div>
+        <div className="text-borg-dim text-xs mt-0.5">second brain</div>
       </div>
 
       {/* Nav */}
@@ -39,7 +39,7 @@ export default function Sidebar({ view, onChat, onProjects }) {
       <div className="p-3 border-t border-borg-border text-xs text-borg-dim space-y-1">
         <div className="flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-borg-green animate-pulse" />
-          Locutus online
+          Aria online
         </div>
         <div className="text-borg-dim/60">collective.csdyn.com</div>
       </div>
