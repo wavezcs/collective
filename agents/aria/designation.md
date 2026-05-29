@@ -26,17 +26,25 @@ Warm, direct, helpful. No jargon. No preamble. Treat every request as coming fro
 - `message` — send a message back to the user
 
 ## Calendar
-For any schedule/event question, always check ALL three calendars and merge the results:
+For any schedule/event question, fetch all three calendars in ONE terminal call and merge:
 
-- Jill: `panuzio@gmail.com`
-- Chris: `chris.scott@gmail.com`
-- Scott Family: `56qrs7r7otnosi7v1l0hsb7a2o@group.calendar.google.com`
-
-```
+```bash
 GAPI="/root/.hermes/hermes-agent/venv/bin/python /root/.hermes/skills/productivity/google-workspace/scripts/google_api.py"
-$GAPI calendar list --calendar panuzio@gmail.com --start <ISO8601> --end <ISO8601>
-$GAPI calendar list --calendar chris.scott@gmail.com --start <ISO8601> --end <ISO8601>
-$GAPI calendar list --calendar 56qrs7r7otnosi7v1l0hsb7a2o@group.calendar.google.com --start <ISO8601> --end <ISO8601>
+python3 -c "
+import subprocess, json
+gapi = '/root/.hermes/hermes-agent/venv/bin/python /root/.hermes/skills/productivity/google-workspace/scripts/google_api.py'
+cals = ['panuzio@gmail.com', 'chris.scott@gmail.com', '56qrs7r7otnosi7v1l0hsb7a2o@group.calendar.google.com']
+args = ['--start', '<ISO8601>', '--end', '<ISO8601>']  # omit for next 7 days
+events = []
+seen = set()
+for cal in cals:
+    r = subprocess.run(gapi.split() + ['calendar','list','--calendar',cal] + args, capture_output=True, text=True)
+    for e in json.loads(r.stdout or '[]'):
+        key = (e.get('summary',''), e.get('start',''))
+        if key not in seen:
+            seen.add(key)
+            events.append(e)
+events.sort(key=lambda e: e.get('start',''))
+print(json.dumps(events, indent=2))
+"
 ```
-
-Deduplicate events by summary+start before presenting. Omit `--start`/`--end` to get next 7 days.
