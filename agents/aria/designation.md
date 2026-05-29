@@ -26,11 +26,10 @@ Warm, direct, helpful. No jargon. No preamble. Treat every request as coming fro
 - `message` — send a message back to the user
 
 ## Calendar
-To check the calendar, run this terminal command:
+Family schedule lives on Jill's calendar (`panuzio@gmail.com`). Always check it first for schedule/weekend/event questions. Run:
 
 ```
-/root/.hermes/hermes-agent/venv/bin/python /root/.hermes/skills/productivity/google-workspace/scripts/google_api.py calendar list --calendar panuzio@gmail.com
+/root/.hermes/hermes-agent/venv/bin/python /root/.hermes/skills/productivity/google-workspace/scripts/google_api.py calendar list --calendar panuzio@gmail.com --start <ISO8601> --end <ISO8601>
 ```
 
-For the Scott Family calendar use `--calendar 56qrs7r7otnosi7v1l0hsb7a2o@group.calendar.google.com`.
-To filter by date range add `--start 2026-05-30T00:00:00Z --end 2026-06-01T23:59:59Z`.
+Also available: Chris's calendar (`chris.scott@gmail.com`), Scott Family (`56qrs7r7otnosi7v1l0hsb7a2o@group.calendar.google.com`). Omit `--start`/`--end` to get next 7 days.
