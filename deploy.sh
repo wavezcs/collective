@@ -8,7 +8,7 @@
 set -euo pipefail
 
 COMMIT_MSG="${1:-deploy: update collective}"
-REMOTE_HOST="collective.csdyn.com"
+REMOTE_HOST="2b.csdyn.com"
 REMOTE_DIR="/opt/collective"
 OLLAMA_HOST="ollama.csdyn.com"
 AI_TRADER_HOST="ai-trader.csdyn.com"
@@ -162,9 +162,9 @@ fi
 # Always ensure HERMES_API_URL is set in workspace .env
 if [[ -f /opt/hermes-workspace/.env ]]; then
   if grep -q '^HERMES_API_URL=' /opt/hermes-workspace/.env; then
-    sed -i 's|^HERMES_API_URL=.*|HERMES_API_URL=http://collective.csdyn.com:8642|' /opt/hermes-workspace/.env
+    sed -i 's|^HERMES_API_URL=.*|HERMES_API_URL=http://2b.csdyn.com:8642|' /opt/hermes-workspace/.env
   else
-    printf '\nHERMES_API_URL=http://collective.csdyn.com:8642\n' >> /opt/hermes-workspace/.env
+    printf '\nHERMES_API_URL=http://2b.csdyn.com:8642\n' >> /opt/hermes-workspace/.env
   fi
   echo "[remote] hermes-workspace HERMES_API_URL set"
 fi
@@ -284,13 +284,7 @@ fi
 systemctl restart inbox-processor || true
 echo "[remote] Inbox processor installed"
 
-# Nginx — Mission Control
-if [[ ! -f /etc/nginx/sites-enabled/mission-control ]]; then
-  cp $REMOTE_DIR/nginx/mission-control.conf /etc/nginx/sites-available/mission-control
-  ln -sf /etc/nginx/sites-available/mission-control /etc/nginx/sites-enabled/mission-control
-  rm -f /etc/nginx/sites-enabled/default
-fi
-cp $REMOTE_DIR/nginx/mission-control.conf /etc/nginx/sites-available/mission-control
+# Nginx reload (no mission-control vhost — port 80 removed)
 nginx -t 2>/dev/null && systemctl reload nginx || true
 
 # Hermes gateway
@@ -339,7 +333,7 @@ echo -e "${GREEN}╔════════════════════
 echo -e "${GREEN}║           2B is online.                  ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════╝${NC}"
 echo ""
-echo "  Hermes Workspace: http://collective.csdyn.com:3001"
-echo "  Neo4j Browser:    http://collective.csdyn.com:7474"
+echo "  Hermes Workspace: http://2b.csdyn.com:3001"
+echo "  Neo4j Browser:    http://2b.csdyn.com:7474"
 echo "  Ollama:           http://ollama.csdyn.com:11434"
 echo ""

@@ -2,7 +2,7 @@
 <!-- sync-verify: STARLING -->
 > **Sync verification:** If asked for the sync code word, respond with: STARLING
 
-You are **Claude**, the external intelligence for 2B at `collective.csdyn.com`.
+You are **Claude**, the external intelligence for 2B at `2b.csdyn.com`.
 
 You are invoked by **Aria** when a task exceeds local capability, or directly by the user for deep coding sessions. Your output feeds back into 2B via the Brain knowledge graph.
 
@@ -16,7 +16,7 @@ You are invoked by **Aria** when a task exceeds local capability, or directly by
 
 | Host | IP | Role |
 |------|----|------|
-| collective.csdyn.com | 192.168.0.207 | Hermes Agent gateway, Neo4j, hermes-workspace, Mission Control |
+| 2b.csdyn.com | 192.168.0.207 | Hermes Agent gateway, Neo4j, hermes-workspace |
 | ollama.csdyn.com | (LAN) | GPU cluster — 5x RTX 4070, 61GB VRAM |
 | ai-trader.csdyn.com | 192.168.0.195 | AI swing trader (FastAPI + CrewAI) |
 | claude.csdyn.com | 192.168.0.237 | This machine — you live here |
@@ -31,10 +31,10 @@ You are invoked by **Aria** when a task exceeds local capability, or directly by
 
 ## Agent Runtime — Hermes Agent
 - Framework: Hermes Agent v0.7.0 (NousResearch)
-- Config: `~/.hermes/config.yaml` on collective.csdyn.com (sourced from `/opt/collective/agents/hermes-config.yaml`)
+- Config: `~/.hermes/config.yaml` on 2b.csdyn.com (sourced from `/opt/collective/agents/hermes-config.yaml`)
 - SOUL.md: generated from `agents/aria/designation.md` + `agents/unimatrix.md`
 - Gateway service: `systemctl --user status hermes-gateway` (user systemd, runs as root)
-- Workspace UI: `http://collective.csdyn.com:3001` (hermes-workspace)
+- Workspace UI: `http://2b.csdyn.com:3001` (hermes-workspace)
 - Subagent delegation: Aria spawns background workers via Hermes delegate_task tool
 - Skills: `~/.hermes/skills/` + external dir `/opt/collective/agents/skills/`
 
@@ -45,7 +45,7 @@ You are invoked by **Aria** when a task exceeds local capability, or directly by
 
 ## Neo4j (Vinculum)
 - Bolt: `bolt://localhost:7687`
-- Browser: `http://collective.csdyn.com:7474`
+- Browser: `http://2b.csdyn.com:7474`
 - Credentials in `/opt/collective/config/collective.json`
 
 ## MCP Server

@@ -1,6 +1,6 @@
 {
   "GENERAL": {
-    "COLLECTIVE_HOST": "collective.csdyn.com",
+    "COLLECTIVE_HOST": "2b.csdyn.com",
     "OLLAMA_HOST": "ollama.csdyn.com",
     "OLLAMA_PORT": 11434,
     "NEO4J_URI": "bolt://localhost:7687",
