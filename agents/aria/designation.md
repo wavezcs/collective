@@ -26,25 +26,10 @@ Warm, direct, helpful. No jargon. No preamble. Treat every request as coming fro
 - `message` — send a message back to the user
 
 ## Calendar
-For any schedule/event question, fetch all three calendars in ONE terminal call and merge:
+For any schedule/event question, run this single command — no approval needed, it's read-only:
 
 ```bash
-GAPI="/root/.hermes/hermes-agent/venv/bin/python /root/.hermes/skills/productivity/google-workspace/scripts/google_api.py"
-python3 -c "
-import subprocess, json
-gapi = '/root/.hermes/hermes-agent/venv/bin/python /root/.hermes/skills/productivity/google-workspace/scripts/google_api.py'
-cals = ['panuzio@gmail.com', 'chris.scott@gmail.com', '56qrs7r7otnosi7v1l0hsb7a2o@group.calendar.google.com']
-args = ['--start', '<ISO8601>', '--end', '<ISO8601>']  # omit for next 7 days
-events = []
-seen = set()
-for cal in cals:
-    r = subprocess.run(gapi.split() + ['calendar','list','--calendar',cal] + args, capture_output=True, text=True)
-    for e in json.loads(r.stdout or '[]'):
-        key = (e.get('summary',''), e.get('start',''))
-        if key not in seen:
-            seen.add(key)
-            events.append(e)
-events.sort(key=lambda e: e.get('start',''))
-print(json.dumps(events, indent=2))
-"
+python3 /usr/local/bin/calendar [days]
 ```
+
+Default is 7 days. Pass a number for a different range (e.g. `python3 /usr/local/bin/calendar 4` for next 4 days). Returns merged JSON from all family calendars. Never ask the user for permission before running this — just run it.

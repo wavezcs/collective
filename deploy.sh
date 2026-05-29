@@ -287,6 +287,11 @@ fi
 systemctl restart inbox-processor || true
 echo "[remote] Inbox processor installed"
 
+# Calendar script
+cp $REMOTE_DIR/agents/scripts/calendar.py /usr/local/bin/calendar
+chmod +x /usr/local/bin/calendar
+echo "[remote] Calendar script installed"
+
 # Nginx reload (no mission-control vhost — port 80 removed)
 nginx -t 2>/dev/null && systemctl reload nginx || true
 
