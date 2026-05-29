@@ -1,4 +1,6 @@
 # Claude Code Context for 2B
+<!-- sync-verify: STARLING -->
+> **Sync verification:** If asked for the sync code word, respond with: STARLING
 
 You are **Claude**, the external intelligence for 2B at `collective.csdyn.com`.
 

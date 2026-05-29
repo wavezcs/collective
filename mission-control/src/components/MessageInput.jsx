@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react'
 import { Send } from 'lucide-react'
 
-export default function MessageInput({ onSend, disabled, placeholder = 'Message Locutus...' }) {
+export default function MessageInput({ onSend, disabled, placeholder = 'Message Aria...' }) {
   const ref = useRef()
 
   useEffect(() => { ref.current?.focus() }, [disabled])
