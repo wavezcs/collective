@@ -7,6 +7,8 @@ model:
   provider: "custom"
   base_url: "http://ollama.csdyn.com:11434/v1"
   api_key: "ollama"
+  extra_body:
+    num_ctx: 8192
 
 _config_version: 14
 
