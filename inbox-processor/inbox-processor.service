@@ -1,0 +1,16 @@
+[Unit]
+Description=2B Inbox Processor — watches vault Inbox and posts to Aria
+After=network.target hermes-gateway.service
+Wants=hermes-gateway.service
+
+[Service]
+Type=simple
+ExecStart=/opt/collective/inbox-processor/processor.sh
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=inbox-processor
+
+[Install]
+WantedBy=multi-user.target

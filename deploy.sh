@@ -110,6 +110,8 @@ if ! systemctl is-active --quiet neo4j 2>/dev/null; then
     apt-get install -y neo4j
     systemctl enable neo4j
   fi
+  # Allow remote connections (needed for claude.csdyn.com MCP access)
+  sed -i 's/#server.default_listen_address=0.0.0.0/server.default_listen_address=0.0.0.0/' /etc/neo4j/neo4j.conf || true
   systemctl start neo4j
   echo "[remote] Waiting for Neo4j to start..."
   for i in \$(seq 1 15); do
@@ -259,6 +261,23 @@ SVCEOF
   systemctl enable projects-api
 fi
 systemctl restart projects-api || true
+
+# Vault directory structure
+mkdir -p /opt/vault/{Inbox/.processed,Projects/2B,Projects/ai-trader,Areas/Health,Areas/Finance,Areas/Home,Resources/Recipes,Calendar,Tasks,Archive}
+if [[ ! -f /opt/vault/Tasks/tasks.md ]]; then
+  echo -e "# Tasks\n\n## Active\n\n## Done\n" > /opt/vault/Tasks/tasks.md
+fi
+echo "[remote] Vault structure ready at /opt/vault"
+
+# Inbox processor service
+chmod +x $REMOTE_DIR/inbox-processor/processor.sh
+if [[ ! -f /etc/systemd/system/inbox-processor.service ]]; then
+  cp $REMOTE_DIR/inbox-processor/inbox-processor.service /etc/systemd/system/
+  systemctl daemon-reload
+  systemctl enable inbox-processor
+fi
+systemctl restart inbox-processor || true
+echo "[remote] Inbox processor installed"
 
 # Nginx — Mission Control
 if [[ ! -f /etc/nginx/sites-enabled/mission-control ]]; then
