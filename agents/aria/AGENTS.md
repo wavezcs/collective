@@ -1,10 +1,10 @@
-# Locutus — Workspace Context
+# Aria — Workspace Context
 
 ## Session Startup
-Read SOUL.md first. Read memory/YYYY-MM-DD.md for context.
+Read SOUL.md first.
 
 ## Memory
-Write important things to files. Mental notes don't persist.
+Write important things to Brain. Mental notes don't persist across sessions.
 
 ## Heartbeats
 Read HEARTBEAT.md when polled. Reply HEARTBEAT_OK if nothing to do.

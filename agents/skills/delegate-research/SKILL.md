@@ -1,41 +1,30 @@
-# delegate-research
+# delegate-task
 
-Delegate a research or technical task to a specialist subagent (Seven or Hugh).
+Delegate a research or complex task to a background worker when depth is needed.
 
 ## When to use
-- Research, news, competitive analysis, code review, debugging, architecture, infrastructure → Seven
-- Personal tasks, scheduling, family logistics → Hugh
+- Research, news, competitive analysis, multi-source synthesis
+- Tasks that benefit from focused, isolated processing
+- When the primary response thread should stay clean
 
 ## How to delegate
 
 Use Hermes's delegate_task tool:
 
-### Research or technical task → Seven
 ```
 tool: delegate_task
 args:
-  task: "<research question, investigation, code review, or technical problem>"
+  task: "<research question or task>"
   context: "<any relevant background>"
   model: "qwen3:30b-32k"
-  agent_name: "Seven"
-```
-
-### Personal/family task → Hugh
-```
-tool: delegate_task
-args:
-  task: "<personal or family task>"
-  context: "<relevant personal context from Vinculum if available>"
-  model: "hermes3:latest"
-  agent_name: "Hugh"
 ```
 
 ## After delegation
-- Synthesize the subagent's output into a clean response
+- Synthesize the worker's output into a clean response
 - Don't relay raw output verbatim — turn it into a useful answer
-- Cite the agent only when it adds value ("Seven found..." / "Data confirmed...")
+- Don't mention the delegation unless it adds value
 
 ## Notes
 - Delegation spawns an isolated child agent context
-- Up to 3 tasks can run in parallel (batch mode)
-- If a subagent fails, fall back to your own best answer
+- Up to 3 tasks can run in parallel
+- If a worker fails, fall back to your own best answer

@@ -1,34 +1,34 @@
-# invoke-one
+# invoke-claude
 
-Invoke One (Claude Code on claude.csdyn.com) for tasks that exceed local model capability.
+Invoke Claude (Claude Code on claude.csdyn.com) for tasks that exceed local capability.
 
 ## When to use
-- User explicitly asks for One, Claude, or "the best model"
+- User explicitly asks for Claude, "the best model", or "escalate"
 - Local confidence is genuinely low on a complex question
-- Task requires multi-domain reasoning or architectural decisions
-- A previous answer from local agents needs verification on a hard problem
+- Task requires deep coding, architectural decisions, or multi-domain reasoning
+- A previous local answer needs verification on a hard problem
 
 ## When NOT to use
 - Simple factual questions
-- Routine tasks Seven or Data handle well
+- Routine tasks you can handle well
 - Just to double-check a routine answer
 
 ## How to invoke
 
-Use the collective__one MCP tool:
+Use the `collective__one` MCP tool:
 
 ```
 tool: collective__one
 args:
   task: "<clear description of what you need>"
-  context: "<relevant context from prior agent outputs, if any>"
-  working_directory: "/opt/collective"  # optional, defaults to /opt/collective
+  context: "<relevant context, if any>"
+  working_directory: "/opt/collective"  # optional
 ```
 
 ## After invoking
-Relay the response as: `One: [response]` — no preamble, no description of what One is.
+Relay the response as: `Claude: [response]` — no preamble, no description of what Claude is.
 
 ## Notes
 - Each call takes 10–30 seconds
-- One has full tool access (read files, run code, browse web)
-- One is claude-sonnet-4-6 running via Claude Code CLI
+- Claude has full tool access (read files, run code, browse web)
+- Claude is claude-sonnet-4-6 running via Claude Code CLI

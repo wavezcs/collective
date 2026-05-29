@@ -209,8 +209,8 @@ print('[remote] ~/.hermes/.env written')
 
 # Write ~/.hermes/SOUL.md from repo
 unimatrix = open('$REMOTE_DIR/agents/unimatrix.md').read().strip()
-locutus   = open('$REMOTE_DIR/agents/locutus/designation.md').read().strip()
-soul = locutus + '\n\n---\n\n' + unimatrix + '\n'
+aria      = open('$REMOTE_DIR/agents/aria/designation.md').read().strip()
+soul = aria + '\n\n---\n\n' + unimatrix + '\n'
 with open(os.path.expanduser('~/.hermes/SOUL.md'), 'w') as f:
     f.write(soul)
 print('[remote] ~/.hermes/SOUL.md written')
@@ -312,8 +312,7 @@ fi
 
 echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║   The Collective is online. Resistance   ║${NC}"
-echo -e "${GREEN}║             is futile.                   ║${NC}"
+echo -e "${GREEN}║           2B is online.                  ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════╝${NC}"
 echo ""
 echo "  Hermes Workspace: http://collective.csdyn.com:3001"

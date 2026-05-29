@@ -21,7 +21,8 @@ const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 let _driver = null;
 function getDriver() {
   if (_driver) return _driver;
-  const { NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD } = config.GENERAL;
+  const { NEO4J_USER, NEO4J_PASSWORD } = config.GENERAL;
+  const NEO4J_URI = process.env.NEO4J_URI || config.GENERAL.NEO4J_URI;
   _driver = neo4j.driver(NEO4J_URI, neo4j.auth.basic(NEO4J_USER, NEO4J_PASSWORD));
   return _driver;
 }
@@ -132,8 +133,8 @@ async function runOne(args) {
 
 const TOOLS = [
   {
-    name: 'vinculum',
-    description: "Read and write to the Collective's Neo4j knowledge graph. Store research findings, retrieve context, manage relationships.",
+    name: 'brain',
+    description: "Read and write to 2B's Neo4j knowledge graph (Brain). Store research findings, retrieve context, manage relationships.",
     inputSchema: {
       type: 'object',
       properties: {
