@@ -3,10 +3,12 @@
 # SOUL.md is generated from agents/locutus/designation.md + agents/unimatrix.md
 
 model:
-  default: "qwen2.5-coder:14b"
+  default: "qwen3:30b-32k"
   provider: "custom"
   base_url: "http://ollama.csdyn.com:11434/v1"
   api_key: "ollama"
+  extra_body:
+    think: false
 
 _config_version: 14
 
