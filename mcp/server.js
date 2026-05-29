@@ -211,7 +211,7 @@ async function handleRequest(msg) {
     const { name, arguments: args = {} } = params;
     try {
       let text;
-      if (name === 'vinculum') text = await runVinculum(args);
+      if (name === 'brain' || name === 'vinculum') text = await runVinculum(args);
       else if (name === 'projects') text = await runProjects(args);
       else if (name === 'one') text = await runOne(args);
       else text = `Error: unknown tool "${name}"`;

@@ -209,6 +209,9 @@ env_lines = [
     '# Telegram',
     f'TELEGRAM_BOT_TOKEN={telegram_token}',
     f'TELEGRAM_ALLOWED_USERS={allowed_users}',
+    '',
+    '# Slack',
+    f'SLACK_ALLOWED_USERS={g.get("SLACK_ALLOWED_USERS", "")}',
 ]
 with open(env_path, 'w') as f:
     f.write('\n'.join(env_lines) + '\n')
