@@ -9,6 +9,7 @@ model:
   api_key: "ollama"
   extra_body:
     think: false
+    num_ctx: 8192
 
 _config_version: 14
 
