@@ -3,7 +3,7 @@
 # SOUL.md is generated from agents/locutus/designation.md + agents/unimatrix.md
 
 model:
-  default: "hermes3:latest"
+  default: "aria:latest"
   provider: "custom"
   base_url: "http://ollama.csdyn.com:11434/v1"
   api_key: "ollama"
