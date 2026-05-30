@@ -295,6 +295,10 @@ echo "[remote] Calendar script installed"
 # Nginx reload (no mission-control vhost — port 80 removed)
 nginx -t 2>/dev/null && systemctl reload nginx || true
 
+# Clear incomplete hermes sessions before restart to prevent replay loops
+find /root/.hermes/sessions/ -name '*.json' -newer /root/.hermes/config.yaml -delete 2>/dev/null || true
+echo "[remote] Cleared incomplete sessions"
+
 # Hermes gateway
 hermes gateway restart 2>/dev/null || hermes gateway start 2>/dev/null || true
 
