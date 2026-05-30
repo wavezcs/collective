@@ -129,6 +129,19 @@ async function runOne(args) {
   }
 }
 
+// ─── Calendar ────────────────────────────────────────────────────────────────
+
+const { execFile } = require('child_process');
+
+async function runCalendar({ days = 7 } = {}) {
+  return new Promise((resolve) => {
+    execFile('python3', ['/usr/local/bin/calendar', String(days)], { timeout: 30000 }, (err, stdout, stderr) => {
+      if (err) return resolve(`Error fetching calendar: ${stderr || err.message}`);
+      resolve(stdout.trim());
+    });
+  });
+}
+
 // ─── Tool registry ─────────────────────────────────────────────────────────────
 
 const TOOLS = [
@@ -167,6 +180,16 @@ const TOOLS = [
         artifact:       { type: 'string' }
       },
       required: ['operation', 'project_id']
+    }
+  },
+  {
+    name: 'calendar',
+    description: "Get upcoming family calendar events. Checks all calendars (Jill, Chris, Scott Family) and returns merged, deduplicated events as JSON.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        days: { type: 'number', description: 'Number of days to look ahead (default: 7)' }
+      }
     }
   },
   {
@@ -213,6 +236,7 @@ async function handleRequest(msg) {
       let text;
       if (name === 'brain' || name === 'vinculum') text = await runVinculum(args);
       else if (name === 'projects') text = await runProjects(args);
+      else if (name === 'calendar') text = await runCalendar(args);
       else if (name === 'one') text = await runOne(args);
       else text = `Error: unknown tool "${name}"`;
       return send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text }] } });
