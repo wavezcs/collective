@@ -28,4 +28,10 @@ for cal in CALENDARS:
             events.append(e)
 
 events.sort(key=lambda e: e.get("start", ""))
-print(json.dumps(events, indent=2))
+
+# Strip to essential fields only to minimize LLM context usage
+slim = [
+    {k: e[k] for k in ("summary", "start", "end", "location") if k in e and e[k]}
+    for e in events
+]
+print(json.dumps(slim, indent=2))
