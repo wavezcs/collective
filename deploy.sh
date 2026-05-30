@@ -179,6 +179,15 @@ allowed_users = ','.join(str(u) for u in g['TELEGRAM_ALLOWED_USERS'])
 env_path = os.path.expanduser('~/.hermes/.env')
 tavily_key = g.get('TAVILY_API_KEY', '')
 
+# Read existing .env to preserve secrets not stored in collective.json
+existing_env = {}
+if os.path.exists(env_path):
+    for line in open(env_path):
+        line = line.strip()
+        if line and not line.startswith('#') and '=' in line:
+            k, v = line.split('=', 1)
+            existing_env[k.strip()] = v.strip()
+
 env_lines = [
     '# Hermes Agent — The Collective',
     '# LLM: Ollama (local GPU cluster)',
@@ -197,7 +206,9 @@ env_lines = [
     f'TELEGRAM_BOT_TOKEN={telegram_token}',
     f'TELEGRAM_ALLOWED_USERS={allowed_users}',
     '',
-    '# Slack',
+    '# Slack (Socket Mode) — tokens preserved from existing .env',
+    f'SLACK_BOT_TOKEN={existing_env.get("SLACK_BOT_TOKEN", "")}',
+    f'SLACK_APP_TOKEN={existing_env.get("SLACK_APP_TOKEN", "")}',
     f'SLACK_ALLOWED_USERS={g.get("SLACK_ALLOWED_USERS", "")}',
     '',
     '# API server (v0.15+ requires a key)',
