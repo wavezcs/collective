@@ -8,7 +8,7 @@ model:
   base_url: "http://ollama.csdyn.com:11434/v1"
   api_key: "ollama"
 
-_config_version: 14
+_config_version: 24
 
 terminal:
   backend: "local"

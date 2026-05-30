@@ -30,11 +30,11 @@ You are invoked by **Aria** when a task exceeds local capability, or directly by
 | Brain | nomic-embed-text | Memory substrate — Neo4j knowledge graph |
 
 ## Agent Runtime — Hermes Agent
-- Framework: Hermes Agent v0.7.0 (NousResearch)
+- Framework: Hermes Agent v0.15.1 (NousResearch official)
 - Config: `~/.hermes/config.yaml` on 2b.csdyn.com (sourced from `/opt/collective/agents/hermes-config.yaml`)
 - SOUL.md: generated from `agents/aria/designation.md` + `agents/unimatrix.md`
 - Gateway service: `systemctl --user status hermes-gateway` (user systemd, runs as root)
-- Workspace UI: `http://2b.csdyn.com:3001` (hermes-workspace)
+- Dashboard UI: `http://2b.csdyn.com:3001` (hermes built-in dashboard, port 3001)
 - Subagent delegation: Aria spawns background workers via Hermes delegate_task tool
 - Skills: `~/.hermes/skills/` + external dir `/opt/collective/agents/skills/`
 

@@ -74,27 +74,27 @@ if ! command -v node &>/dev/null || [[ "\$(node --version | cut -d. -f1 | tr -d 
   apt-get install -y nodejs
 fi
 
-# Hermes Agent — install outsourc-e fork (has enhanced WebAPI for hermes-workspace)
+# Hermes Agent — NousResearch official (v0.15+)
 HERMES_DIR="/root/.hermes/hermes-agent"
-FORK_URL="https://github.com/outsourc-e/hermes-agent.git"
+NOUS_URL="https://github.com/NousResearch/hermes-agent.git"
 
 if [[ ! -d "\$HERMES_DIR" ]]; then
-  echo "[remote] Installing Hermes Agent (outsourc-e fork)..."
+  echo "[remote] Installing Hermes Agent (NousResearch official)..."
   mkdir -p /root/.hermes
-  git clone "\$FORK_URL" "\$HERMES_DIR"
+  git clone "\$NOUS_URL" "\$HERMES_DIR"
   cd "\$HERMES_DIR"
-  python3 -m venv venv || uv venv venv --python 3.11
-  source venv/bin/activate && pip install -e ".[all]" --quiet 2>/dev/null || pip install -e . --quiet
+  uv venv venv --python 3.11
+  uv pip install -e ".[all]" --quiet
   mkdir -p /root/.local/bin
   ln -sf "\$HERMES_DIR/venv/bin/hermes" /root/.local/bin/hermes
 else
   CURRENT_REMOTE=\$(git -C "\$HERMES_DIR" remote get-url origin 2>/dev/null || echo "")
-  if [[ "\$CURRENT_REMOTE" != "\$FORK_URL" ]]; then
-    echo "[remote] Migrating Hermes to outsourc-e fork..."
-    git -C "\$HERMES_DIR" remote set-url origin "\$FORK_URL"
+  if [[ "\$CURRENT_REMOTE" != "\$NOUS_URL" ]]; then
+    echo "[remote] Migrating Hermes to NousResearch official..."
+    git -C "\$HERMES_DIR" remote set-url origin "\$NOUS_URL"
     git -C "\$HERMES_DIR" fetch origin
     git -C "\$HERMES_DIR" reset --hard origin/main
-    cd "\$HERMES_DIR" && venv/bin/pip install -e ".[all]" --quiet 2>/dev/null || venv/bin/pip install -e . --quiet
+    uv pip install --python "\$HERMES_DIR/venv/bin/python" -e "\$HERMES_DIR/[all]" --quiet
   fi
 fi
 
@@ -131,43 +131,30 @@ if ! systemctl is-active --quiet neo4j 2>/dev/null; then
   echo "[remote] Neo4j schema initialized"
 fi
 
-# hermes-workspace — install if not present
-if [[ ! -d /opt/hermes-workspace ]]; then
-  echo "[remote] Installing hermes-workspace..."
-  cd /opt && git clone https://github.com/outsourc-e/hermes-workspace.git
-  cd /opt/hermes-workspace && npm install && npm run build
-  cp .env.example .env
-  cat > /etc/systemd/system/hermes-workspace.service << 'SVCEOF'
+# Hermes Dashboard (v0.15 built-in, replaces outsourc-e hermes-workspace)
+# Runs as a systemd service on port 3001
+if [[ ! -f /etc/systemd/system/hermes-dashboard.service ]]; then
+  cat > /etc/systemd/system/hermes-dashboard.service << 'SVCEOF'
 [Unit]
-Description=Hermes Workspace UI
+Description=Hermes Agent Dashboard
 After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/hermes-workspace
-ExecStart=/usr/bin/node server-entry.js
+ExecStart=/root/.local/bin/hermes dashboard --port 3001
 Restart=always
 RestartSec=5
-Environment=NODE_ENV=production
-Environment=PORT=3001
-EnvironmentFile=/opt/hermes-workspace/.env
+Environment=HERMES_HOME=/root/.hermes
+Environment=PATH=/root/.hermes/hermes-agent/venv/bin:/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/bin
 
 [Install]
 WantedBy=multi-user.target
 SVCEOF
   systemctl daemon-reload
-  systemctl enable hermes-workspace
+  systemctl enable hermes-dashboard
+  echo "[remote] Hermes dashboard service installed"
 fi
-
-# Always ensure HERMES_API_URL is set in workspace .env
-if [[ -f /opt/hermes-workspace/.env ]]; then
-  if grep -q '^HERMES_API_URL=' /opt/hermes-workspace/.env; then
-    sed -i 's|^HERMES_API_URL=.*|HERMES_API_URL=http://2b.csdyn.com:8642|' /opt/hermes-workspace/.env
-  else
-    printf '\nHERMES_API_URL=http://2b.csdyn.com:8642\n' >> /opt/hermes-workspace/.env
-  fi
-  echo "[remote] hermes-workspace HERMES_API_URL set"
-fi
+echo "[remote] hermes-workspace HERMES_API_URL set"
 
 ENDSSH
 
@@ -302,8 +289,8 @@ echo "[remote] Cleared incomplete sessions"
 # Hermes gateway
 hermes gateway restart 2>/dev/null || hermes gateway start 2>/dev/null || true
 
-# hermes-workspace
-systemctl restart hermes-workspace.service 2>/dev/null || true
+# Hermes dashboard (v0.15 built-in)
+systemctl restart hermes-dashboard.service 2>/dev/null || systemctl start hermes-dashboard.service 2>/dev/null || true
 
 # Neo4j (ensure running)
 systemctl is-active --quiet neo4j || systemctl start neo4j || true
@@ -345,7 +332,7 @@ echo -e "${GREEN}╔════════════════════
 echo -e "${GREEN}║           2B is online.                  ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════╝${NC}"
 echo ""
-echo "  Hermes Workspace: http://2b.csdyn.com:3001"
+echo "  Hermes Dashboard: http://2b.csdyn.com:3001"
 echo "  Neo4j Browser:    http://2b.csdyn.com:7474"
 echo "  Ollama:           http://ollama.csdyn.com:11434"
 echo ""
