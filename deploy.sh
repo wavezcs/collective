@@ -141,7 +141,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/root/.local/bin/hermes dashboard --port 3001
+ExecStart=/root/.local/bin/hermes dashboard --port 3001 --host 0.0.0.0 --insecure --no-open --skip-build
 Restart=always
 RestartSec=5
 Environment=HERMES_HOME=/root/.hermes
@@ -199,6 +199,9 @@ env_lines = [
     '',
     '# Slack',
     f'SLACK_ALLOWED_USERS={g.get("SLACK_ALLOWED_USERS", "")}',
+    '',
+    '# API server (v0.15+ requires a key)',
+    f'API_SERVER_KEY={g.get("API_SERVER_KEY", "")}',
 ]
 with open(env_path, 'w') as f:
     f.write('\n'.join(env_lines) + '\n')
