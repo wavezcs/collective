@@ -1,6 +1,11 @@
 # Hermes Agent configuration — The Collective
 # Deployed to ~/.hermes/config.yaml on collective.csdyn.com by deploy.sh
-# SOUL.md is generated from agents/locutus/designation.md + agents/unimatrix.md
+# SOUL.md is generated from agents/aria/designation.md + agents/unimatrix.md
+#
+# Model tiers:
+#   Tier 1 — aria:latest (qwen3.5:35b-a3b, MoE fast)   → Aria main agent
+#   Tier 2 — qwen3:30b-32k (30B dense, 32K ctx)        → delegation workers, compression
+#   Tier 3 — Claude (claude-sonnet-4-6 via collective__one) → hard problems
 
 model:
   default: "aria:latest"
@@ -30,11 +35,11 @@ compression:
   summary_provider: "main"
 
 delegation:
-  model: "qwen3.5:27b"
+  model: "qwen3:30b-32k"
   provider: "custom"
   base_url: "http://ollama.csdyn.com:11434/v1"
   api_key: "ollama"
-  reasoning_effort: "none"
+  reasoning_effort: "low"
   max_iterations: 40
   default_toolsets: ["terminal", "file", "web"]
 

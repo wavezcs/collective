@@ -26,7 +26,9 @@ You are invoked by **Aria** when a task exceeds local capability, or directly by
 
 | Agent | Model | Role |
 |-------|-------|------|
-| Aria | Qwen 3 30B | Primary assistant — handles all requests, delegates internally |
+| Aria | qwen3.5:35b-a3b (MoE, fast) | Primary assistant — handles all requests, delegates internally |
+| Workers | qwen3:30b-32k (30B dense) | Delegation subagents for research, analysis, complex tasks |
+| Claude | claude-sonnet-4-6 | External intelligence — hard problems, deep coding (via `collective__one`) |
 | Brain | nomic-embed-text | Memory substrate — Neo4j knowledge graph |
 
 ## Agent Runtime — Hermes Agent
@@ -41,7 +43,7 @@ You are invoked by **Aria** when a task exceeds local capability, or directly by
 ## Ollama
 - Host: `http://ollama.csdyn.com:11434`
 - Use `/v1` OpenAI-compatible endpoint — Hermes handles tool calling parsing
-- Models: qwen3.5:35b-a3b, qwen3.5:27b, qwen2.5-coder:14b, hermes3:latest, nomic-embed-text:latest
+- Models: `aria:latest` (→qwen3.5:35b-a3b, tier 1), `qwen3:30b-32k` (tier 2), `qwen2.5-coder:14b`, `nomic-embed-text:latest`
 
 ## Neo4j (Vinculum)
 - Bolt: `bolt://localhost:7687`
