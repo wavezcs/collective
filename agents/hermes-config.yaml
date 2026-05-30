@@ -30,6 +30,11 @@ compression:
   summary_provider: "main"
 
 delegation:
+  model: "qwen3.5:27b"
+  provider: "custom"
+  base_url: "http://ollama.csdyn.com:11434/v1"
+  api_key: "ollama"
+  reasoning_effort: "none"
   max_iterations: 40
   default_toolsets: ["terminal", "file", "web"]
 
@@ -49,8 +54,8 @@ streaming:
 
 platform_toolsets:
   cli: [hermes-cli]
-  slack: [terminal, file, web, skills, todo, cronjob]
-  api_server: [terminal, file, web, skills, todo, cronjob]
+  slack: [terminal, file, web, skills, todo, memory, session_search, delegation]
+  api_server: [terminal, file, web, skills, todo, memory, session_search, delegation]
 
 mcp_servers:
   collective:

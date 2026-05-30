@@ -202,6 +202,12 @@ env_lines = [
     '',
     '# API server (v0.15+ requires a key)',
     f'API_SERVER_KEY={g.get("API_SERVER_KEY", "")}',
+    '',
+    '# ntfy push notifications',
+    f'NTFY_TOPIC={g.get("NTFY_TOPIC", "")}',
+    f'NTFY_ALLOWED_USERS={g.get("NTFY_TOPIC", "")}',
+    f'NTFY_HOME_CHANNEL={g.get("NTFY_TOPIC", "")}',
+    'NTFY_MARKDOWN=true',
 ]
 with open(env_path, 'w') as f:
     f.write('\n'.join(env_lines) + '\n')
