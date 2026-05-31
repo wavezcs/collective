@@ -180,6 +180,11 @@ export async function generateGrocery(weekOf) {
   return r.json()
 }
 
+export async function clearGrocery(weekOf) {
+  const r = await fetch(`${BASE}/grocery/${weekOf}/clear`, { method: 'POST' })
+  return r.json()
+}
+
 export async function updateGroceryItem(weekOf, store, index, data) {
   const r = await fetch(`${BASE}/grocery/${weekOf}/item`, {
     method: 'PATCH',

@@ -6,7 +6,7 @@ import {
   getGrocery, generateGrocery, updateGroceryItem, addGroceryItem, removeGroceryItem,
   getStaples, updateStaples, deduplicateRecipes, discoverRecipes, analyzeRecipes, getAnalyzeStatus,
   listPinterestBoards, addPinterestBoard, deletePinterestBoard, scanPinterestBoard,
-  getPreferences, updatePreferences, ariaLearn, getPlanStatus
+  getPreferences, updatePreferences, ariaLearn, getPlanStatus, clearGrocery
 } from '../api/meals'
 import {
   ChefHat, Zap, Clock, Star, Plus, Trash2, ThumbsUp, ThumbsDown,
@@ -1527,6 +1527,7 @@ function GroceryTab() {
   const [weekOf, setWeekOf] = useState(() => toMonday(new Date()))
   const [copied, setCopied] = useState(null)
   const [showStaples, setShowStaples] = useState(false)
+  const [confirmClear, setConfirmClear] = useState(false)
 
   const { data: grocery, isLoading } = useQuery({
     queryKey: ['grocery', weekOf],
@@ -1541,6 +1542,11 @@ function GroceryTab() {
   const generateMut = useMutation({
     mutationFn: () => generateGrocery(weekOf),
     onSuccess: () => qc.invalidateQueries(['grocery', weekOf])
+  })
+
+  const clearMut = useMutation({
+    mutationFn: () => clearGrocery(weekOf),
+    onSuccess: () => { qc.invalidateQueries(['grocery', weekOf]); setConfirmClear(false) }
   })
 
   const updateItem = useMutation({
@@ -1589,12 +1595,35 @@ function GroceryTab() {
             <ChevronRight size={14} />
           </button>
         </div>
-        <button onClick={() => generateMut.mutate()} disabled={generateMut.isPending}
-          className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-borg-green/50
-                     text-borg-green hover:bg-borg-panel disabled:opacity-50 transition-colors shrink-0">
-          {generateMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-          {hasItems ? 'Update List' : 'Generate List'}
-        </button>
+        <div className="flex items-center gap-1.5">
+          {hasItems && !confirmClear && (
+            <button onClick={() => setConfirmClear(true)}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-borg-border
+                         text-borg-muted hover:text-red-400 hover:border-red-400/40 transition-colors">
+              <Trash2 size={12} /> Clear
+            </button>
+          )}
+          {hasItems && confirmClear && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-borg-muted">Clear list?</span>
+              <button onClick={() => clearMut.mutate()} disabled={clearMut.isPending}
+                className="text-xs px-2 py-1 rounded bg-red-500/10 border border-red-500/40 text-red-400
+                           hover:bg-red-500/20 transition-colors disabled:opacity-50">
+                {clearMut.isPending ? 'Clearing…' : 'Yes, clear'}
+              </button>
+              <button onClick={() => setConfirmClear(false)}
+                className="text-xs px-2 py-1 rounded text-borg-muted hover:text-borg-text hover:bg-borg-panel transition-colors">
+                Cancel
+              </button>
+            </div>
+          )}
+          <button onClick={() => generateMut.mutate()} disabled={generateMut.isPending}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-borg-green/50
+                       text-borg-green hover:bg-borg-panel disabled:opacity-50 transition-colors shrink-0">
+            {generateMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+            {hasItems ? 'Update List' : 'Generate List'}
+          </button>
+        </div>
       </div>
 
       {isLoading

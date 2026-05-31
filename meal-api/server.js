@@ -1863,6 +1863,17 @@ const server = http.createServer(async (req, res) => {
         json(res, 200, grocery);
         return;
       }
+      // POST /meals/grocery/:week/clear — clear all items
+      if (req.method === 'POST' && id && sub === 'clear') {
+        const plan = await getPlan(id);
+        if (!plan) { json(res, 404, { error: 'Not found' }); return; }
+        const session = driver.session();
+        try {
+          await session.run('MATCH (p:MealPlan {week_of: $weekOf}) SET p.grocery = $grocery', { weekOf: id, grocery: JSON.stringify({ whole_foods: [], target: [] }) });
+        } finally { await session.close(); }
+        json(res, 200, { whole_foods: [], target: [] });
+        return;
+      }
       // DELETE /meals/grocery/:week/item — remove item
       if (req.method === 'DELETE' && id && sub === 'item') {
         const body = await parseBody(req);
