@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   listRecipes, createRecipe, updateRecipe, deleteRecipe, rateRecipe, scrapeRecipe,
@@ -156,13 +156,95 @@ function RecipePickerModal({ recipes, day, slot, onPick, onClose }) {
   )
 }
 
+// ─── Tag Input ───────────────────────────────────────────────────────────────
+
+function TagInput({ value = [], onChange, allTags = [] }) {
+  const [input, setInput] = useState('')
+  const [open, setOpen] = useState(false)
+  const inputRef = useRef(null)
+
+  const q = input.trim().toLowerCase()
+  const suggestions = allTags.filter(t => t.toLowerCase().includes(q) && !value.includes(t))
+  const isNew = q.length > 0 && !allTags.some(t => t.toLowerCase() === q) && !value.includes(q)
+
+  function add(tag) {
+    const t = tag.trim().toLowerCase()
+    if (!t || value.includes(t)) return
+    onChange([...value, t])
+    setInput('')
+    setOpen(false)
+    inputRef.current?.focus()
+  }
+
+  function remove(tag) {
+    onChange(value.filter(t => t !== tag))
+  }
+
+  function handleKeyDown(e) {
+    if ((e.key === 'Enter' || e.key === ',') && input.trim()) {
+      e.preventDefault()
+      add(input.trim())
+    }
+    if (e.key === 'Backspace' && !input && value.length) {
+      onChange(value.slice(0, -1))
+    }
+    if (e.key === 'Escape') setOpen(false)
+  }
+
+  return (
+    <div className="relative">
+      <div
+        className="flex flex-wrap gap-1 bg-borg-panel border border-borg-border rounded px-2 py-1.5 min-h-[38px] cursor-text
+                   focus-within:border-borg-green/50"
+        onClick={() => inputRef.current?.focus()}
+      >
+        {value.map(tag => (
+          <span key={tag} className="flex items-center gap-1 bg-borg-border/70 text-borg-text text-xs rounded px-2 py-0.5">
+            {tag}
+            <button type="button" onClick={e => { e.stopPropagation(); remove(tag) }}
+              className="text-borg-dim hover:text-red-400 leading-none">×</button>
+          </span>
+        ))}
+        <input
+          ref={inputRef}
+          value={input}
+          onChange={e => { setInput(e.target.value); setOpen(true) }}
+          onKeyDown={handleKeyDown}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          placeholder={value.length ? '' : 'quick, soup, pasta…'}
+          className="flex-1 min-w-20 bg-transparent text-sm text-borg-text placeholder-borg-dim focus:outline-none py-0.5"
+        />
+      </div>
+      {open && (suggestions.length > 0 || isNew) && (
+        <div className="absolute z-20 top-full left-0 right-0 mt-0.5 bg-borg-surface border border-borg-border
+                        rounded shadow-lg max-h-36 overflow-y-auto">
+          {suggestions.slice(0, 8).map(t => (
+            <button key={t} type="button" onMouseDown={() => add(t)}
+              className="w-full text-left px-3 py-1.5 text-sm text-borg-text hover:bg-borg-panel transition-colors">
+              {t}
+            </button>
+          ))}
+          {isNew && (
+            <button type="button" onMouseDown={() => add(input.trim())}
+              className="w-full text-left px-3 py-1.5 text-sm text-borg-green hover:bg-borg-panel transition-colors
+                         flex items-center gap-1.5 border-t border-borg-border/50">
+              <Plus size={11} /> Add "{input.trim()}"
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Add Recipe Modal ─────────────────────────────────────────────────────────
 
-function AddRecipeModal({ onClose, onCreate }) {
+function AddRecipeModal({ onClose, onCreate, allTags = [] }) {
   const [form, setForm] = useState({
     name: '', url: '', source: '', prep_minutes: '', total_minutes: '',
     vegetarian: false, has_meat_option: false, kid_friendly: false,
-    in_rotation: true, tags: '', notes: '',
+    in_rotation: true, tags: [], notes: '',
     image: null, cached_wf_items: null, cached_target_items: null
   })
   const [busy, setBusy] = useState(false)
@@ -186,7 +268,7 @@ function AddRecipeModal({ onClose, onCreate }) {
         prep_minutes:  data.prep_minutes ? String(data.prep_minutes) : f.prep_minutes,
         total_minutes: data.total_minutes ? String(data.total_minutes) : f.total_minutes,
         vegetarian:    data.vegetarian  ?? f.vegetarian,
-        tags:          data.tags?.length ? data.tags.join(', ') : f.tags,
+        tags:          data.tags?.length ? data.tags : f.tags,
         image:               data.image               || f.image,
         cached_wf_items:     data.cached_wf_items     || f.cached_wf_items,
         cached_target_items: data.cached_target_items || f.cached_target_items,
@@ -206,7 +288,6 @@ function AddRecipeModal({ onClose, onCreate }) {
       ...form,
       prep_minutes: parseInt(form.prep_minutes || '0', 10),
       total_minutes: parseInt(form.total_minutes || '0', 10),
-      tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : []
     })
     onClose()
   }
@@ -274,9 +355,8 @@ function AddRecipeModal({ onClose, onCreate }) {
             </div>
           </div>
           <div>
-            <label className={labelCls}>Tags (comma-separated)</label>
-            <input value={form.tags} onChange={e => set('tags', e.target.value)}
-              placeholder="quick, soup, pasta, rotation…" className={inputCls} />
+            <label className={labelCls}>Tags</label>
+            <TagInput value={form.tags} onChange={v => set('tags', v)} allTags={allTags} />
           </div>
           <div>
             <label className={labelCls}>Notes</label>
@@ -467,7 +547,7 @@ function PinterestModal({ onClose, onImported }) {
 
 // ─── Edit Recipe Modal ────────────────────────────────────────────────────────
 
-function EditRecipeModal({ recipe, onClose, onSave }) {
+function EditRecipeModal({ recipe, onClose, onSave, allTags = [] }) {
   const [form, setForm] = useState({
     name:          recipe.name          || '',
     url:           recipe.url           || '',
@@ -478,7 +558,7 @@ function EditRecipeModal({ recipe, onClose, onSave }) {
     has_meat_option: recipe.has_meat_option || false,
     kid_friendly:  recipe.kid_friendly  || false,
     in_rotation:   recipe.in_rotation   !== false,
-    tags:          Array.isArray(recipe.tags) ? recipe.tags.join(', ') : '',
+    tags:          Array.isArray(recipe.tags) ? recipe.tags : [],
     notes:         recipe.notes         || '',
   })
   const [busy, setBusy] = useState(false)
@@ -492,7 +572,6 @@ function EditRecipeModal({ recipe, onClose, onSave }) {
       ...form,
       prep_minutes:  parseInt(form.prep_minutes  || '0', 10),
       total_minutes: parseInt(form.total_minutes || '0', 10),
-      tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : []
     })
     onClose()
   }
@@ -541,9 +620,8 @@ function EditRecipeModal({ recipe, onClose, onSave }) {
             </div>
           </div>
           <div>
-            <label className={labelCls}>Tags (comma-separated)</label>
-            <input value={form.tags} onChange={e => set('tags', e.target.value)}
-              placeholder="quick, soup, pasta…" className={inputCls} />
+            <label className={labelCls}>Tags</label>
+            <TagInput value={form.tags} onChange={v => set('tags', v)} allTags={allTags} />
           </div>
           <div>
             <label className={labelCls}>Notes</label>
@@ -788,6 +866,12 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
     onSuccess: () => { qc.invalidateQueries(['recipes']); onRefresh() }
   })
 
+  const allTags = useMemo(() => {
+    const s = new Set()
+    recipes.forEach(r => (r.tags || []).forEach(t => s.add(t)))
+    return [...s].sort()
+  }, [recipes])
+
   const filtered = recipes.filter(r => {
     if (search && !r.name.toLowerCase().includes(search.toLowerCase())) return false
     if (chip === 'in_rotation' && !r.in_rotation) return false
@@ -931,13 +1015,14 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
         />
       )}
       {showAdd && (
-        <AddRecipeModal onClose={() => setShowAdd(false)} onCreate={data => create.mutateAsync(data)} />
+        <AddRecipeModal onClose={() => setShowAdd(false)} onCreate={data => create.mutateAsync(data)} allTags={allTags} />
       )}
       {editRecipe && (
         <EditRecipeModal
           recipe={editRecipe}
           onClose={() => setEditRecipe(null)}
           onSave={(id, data) => edit.mutateAsync({ id, data })}
+          allTags={allTags}
         />
       )}
     </div>
