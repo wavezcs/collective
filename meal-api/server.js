@@ -559,8 +559,8 @@ async function createPlan(weekOf) {
       meal_context: 'normal',
       chris_home: true,
       events_summary: '',
-      selected_recipe_id: null,
-      alternative_ids: [],
+      adult_recipe_id: null,
+      kids_recipe_id: null,
       notes: null
     }));
 
@@ -625,8 +625,8 @@ async function generatePlan(weekOf) {
       meal_context: context,
       chris_home: chrisHome,
       events_summary: eventsSummary,
-      selected_recipe_id: day.selected_recipe_id || (suggested ? suggested.id : null),
-      alternative_ids: []
+      adult_recipe_id: day.adult_recipe_id || (suggested ? suggested.id : null),
+      kids_recipe_id: day.kids_recipe_id || null
     };
   });
 
@@ -652,9 +652,11 @@ async function approvePlan(weekOf) {
 
   const seenItems = new Set();
 
-  for (const day of plan.days) {
-    if (!day.selected_recipe_id) continue;
-    const recipe = await getRecipe(day.selected_recipe_id);
+  const recipeIds = new Set(
+    plan.days.flatMap(d => [d.adult_recipe_id, d.kids_recipe_id]).filter(Boolean)
+  );
+  for (const recipeId of recipeIds) {
+    const recipe = await getRecipe(recipeId);
     if (!recipe) continue;
 
     if (recipe.cached_wf_items) {
