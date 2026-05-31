@@ -105,6 +105,15 @@ export async function clearPlan(weekOf) {
   return r.json()
 }
 
+export async function planWithAria(weekOf) {
+  const r = await fetch(`${BASE}/plans/${weekOf}/plan-with-aria`, { method: 'POST' })
+  return r.json()
+}
+
+export async function analyzeRecipes() {
+  await fetch(`${BASE}/recipes/analyze`, { method: 'POST' })
+}
+
 export async function deduplicateRecipes() {
   const r = await fetch(`${BASE}/recipes/deduplicate`, { method: 'POST' })
   return r.json()
@@ -184,6 +193,26 @@ export async function removeGroceryItem(weekOf, store, index) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ store, index })
   })
+  return r.json()
+}
+
+// ─── Preferences ──────────────────────────────────────────────────────────────
+
+export async function getPreferences() {
+  const r = await fetch(`${BASE}/preferences`)
+  return r.json()
+}
+
+export async function updatePreferences(content) {
+  await fetch(`${BASE}/preferences`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content })
+  })
+}
+
+export async function ariaLearn() {
+  const r = await fetch(`${BASE}/preferences/learn`, { method: 'POST' })
   return r.json()
 }
 

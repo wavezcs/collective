@@ -37,6 +37,8 @@ const CONFIG_PATH = path.join(__dirname, '../config/collective.json');
 const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 const { NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD } = config.GENERAL;
 const PORT = 3003;
+const OLLAMA_BASE = 'http://ollama.csdyn.com:11434/v1';
+const PREFS_PATH = path.join(__dirname, 'preferences.md');
 
 const driver = neo4j.driver(NEO4J_URI, neo4j.auth.basic(NEO4J_USER, NEO4J_PASSWORD));
 
@@ -57,6 +59,375 @@ const DEFAULT_STAPLES = {
     'Sparkling water'
   ]
 };
+
+// ─── Aria / Ollama helpers ────────────────────────────────────────────────────
+
+// Call aria:latest via Ollama for structured JSON output
+async function ollamaChat(messages, { model = 'aria:latest', temperature = 0.3, timeout = 60_000 } = {}) {
+  const res = await fetch(`${OLLAMA_BASE}/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ollama' },
+    body: JSON.stringify({ model, messages, format: 'json', stream: false, options: { temperature } }),
+    signal: AbortSignal.timeout(timeout),
+  });
+  if (!res.ok) throw new Error(`Ollama ${res.status}`);
+  const data = await res.json();
+  const content = data.choices?.[0]?.message?.content || '';
+  return JSON.parse(content);
+}
+
+// Aria classifies a recipe: vegetarian, kid_friendly, type (main/side), tags
+async function analyzeRecipeWithAria(recipe) {
+  const ingredients = [];
+  if (recipe.cached_wf_items)     try { ingredients.push(...JSON.parse(recipe.cached_wf_items)); }     catch {}
+  if (recipe.cached_target_items) try { ingredients.push(...JSON.parse(recipe.cached_target_items)); } catch {}
+
+  return await ollamaChat([
+    { role: 'system', content: 'You classify recipes. Return only valid JSON, no extra text.' },
+    { role: 'user', content: `Classify this recipe:
+Name: "${recipe.name}"
+Source: ${recipe.source || 'unknown'}
+Time: ${recipe.total_minutes || '?'} minutes
+Ingredients: ${ingredients.slice(0, 25).join(', ') || 'not available'}
+
+Return JSON (all fields required):
+{
+  "vegetarian": true or false,
+  "kid_friendly": true or false,
+  "type": "main" or "side",
+  "tags": [],
+  "should_exclude": true or false
+}
+
+Definitions:
+- vegetarian: contains no meat, poultry, or seafood
+- kid_friendly: a 6 or 9 year old would willingly eat it — familiar flavors, not spicy, not bitter greens or offal
+- type: "side" only if clearly a side dish (fries, salad, roasted veg, rice, bread, dipping sauce). Otherwise "main"
+- tags: up to 5 from: quick, pasta, soup, salad, chicken, beef, seafood, mexican, italian, asian, mediterranean, comfort, baking, snack
+- should_exclude: true if this is a dessert, sweet treat, drink/cocktail/smoothie, condiment/sauce, or anything NOT suitable as a dinner meal or dinner side dish` }
+  ], { temperature: 0.1 });
+}
+
+// Apply Aria's analysis to a recipe in the DB
+async function applyRecipeAnalysis(recipeId, existingTags, result) {
+  if (!result) return;
+  const updates = { aria_analyzed: true };
+  if (result.vegetarian !== undefined) updates.vegetarian = result.vegetarian;
+  if (result.kid_friendly !== undefined) updates.kid_friendly = result.kid_friendly;
+  if (result.type)       updates.type = result.type;
+  if (result.tags?.length) updates.tags = [...new Set([...(existingTags || []), ...result.tags])];
+  if (result.should_exclude) {
+    updates.in_rotation = false;
+    console.log(`[aria] excluding from rotation: ${recipeId} (dessert/drink/non-meal)`);
+  }
+  await updateRecipe(recipeId, updates);
+}
+
+// Analyze newly added recipes in the background (called after Pinterest scan / discover)
+function analyzeNewRecipesBackground(addedList) {
+  if (!addedList.length) return;
+  setTimeout(async () => {
+    console.log(`[aria] analyzing ${addedList.length} new recipes in background`);
+    for (const item of addedList) {
+      try {
+        const recipe = await getRecipe(item.id);
+        if (!recipe || recipe.aria_analyzed) continue;
+        const result = await analyzeRecipeWithAria(recipe);
+        await applyRecipeAnalysis(recipe.id, recipe.tags, result);
+        await new Promise(r => setTimeout(r, 400));
+      } catch (err) {
+        console.warn(`[aria] analysis failed for ${item.name || item.id}: ${err.message}`);
+      }
+    }
+    console.log(`[aria] background analysis complete`);
+  }, 3000);
+}
+
+// Batch-analyze all recipes that Aria hasn't classified yet (up to 30 per call)
+async function analyzeAllRecipes() {
+  const session = driver.session();
+  let toAnalyze;
+  try {
+    const r = await session.run(
+      'MATCH (r:Recipe) WHERE r.aria_analyzed IS NULL OR r.aria_analyzed = false RETURN r LIMIT 30'
+    );
+    toAnalyze = r.records.map(rec => serializeProps(rec.get('r').properties));
+  } finally {
+    await session.close();
+  }
+
+  let analyzed = 0;
+  for (const recipe of toAnalyze) {
+    try {
+      const result = await analyzeRecipeWithAria(recipe);
+      await applyRecipeAnalysis(recipe.id, recipe.tags, result);
+      analyzed++;
+      await new Promise(r => setTimeout(r, 400));
+    } catch (err) {
+      console.warn(`[aria] batch analysis failed for ${recipe.name}: ${err.message}`);
+    }
+  }
+  console.log(`[aria] batch analyzed ${analyzed}/${toAnalyze.length} recipes`);
+  return { analyzed, remaining: toAnalyze.length - analyzed };
+}
+
+// ─── Preferences (editable markdown file, Aria keeps it updated) ─────────────
+
+const DEFAULT_PREFERENCES = `# Meal Preferences
+
+## Family
+- Adults: Jill and Chris
+- Kids: ages 6 and 9
+
+## Observations
+*(Aria updates this section based on ratings and selection patterns)*
+
+## Favorites & Themes
+*(Aria notes recurring loved recipes and themes)*
+
+## Things to Avoid
+*(Recipes or ingredients that consistently get low ratings)*
+
+## Custom Notes
+*(Add any custom notes for meal planning here)*
+`;
+
+async function readPreferences() {
+  try { return await fs.promises.readFile(PREFS_PATH, 'utf8'); }
+  catch { return DEFAULT_PREFERENCES; }
+}
+
+async function writePreferences(content) {
+  await fs.promises.writeFile(PREFS_PATH, content, 'utf8');
+}
+
+// Aria reviews rating patterns, never-tried recipes, and updates preferences.md
+async function ariaLearn() {
+  const session = driver.session();
+  let recipes, assignedIds = new Set();
+  try {
+    const rr = await session.run('MATCH (r:Recipe) WHERE r.in_rotation = true RETURN r');
+    recipes = rr.records.map(rec => serializeProps(rec.get('r').properties));
+
+    // Collect all recipe IDs that have ever appeared in a plan
+    const pr = await session.run('MATCH (p:MealPlan) RETURN p.days');
+    for (const rec of pr.records) {
+      try {
+        const days = JSON.parse(rec.get('p.days') || '[]');
+        for (const d of days) {
+          if (d.adult_recipe_id) assignedIds.add(d.adult_recipe_id);
+          if (d.kids_recipe_id)  assignedIds.add(d.kids_recipe_id);
+        }
+      } catch {}
+    }
+  } finally {
+    await session.close();
+  }
+
+  const loved      = recipes.filter(r => r.rating === 2);
+  const liked      = recipes.filter(r => r.rating === 1);
+  const disliked   = recipes.filter(r => r.rating === -1);
+  const neverPicked = recipes.filter(r => !assignedIds.has(r.id));
+
+  const currentPrefs = await readPreferences();
+  const fmt = r => `- ${r.name} [tags:${(r.tags||[]).join(',')||'none'}, type:${r.type||'?'}, veg:${!!r.vegetarian}, kids:${!!r.kid_friendly}]`;
+
+  const result = await ollamaChat([
+    { role: 'system', content: 'You are Aria, analyzing meal planning history. Return only valid JSON.' },
+    { role: 'user', content: `Analyze meal planning patterns and update the family preferences file.
+
+CURRENT PREFERENCES:
+${currentPrefs}
+
+LOVED (rating=2):
+${loved.slice(0, 15).map(fmt).join('\n') || 'none yet'}
+
+LIKED (rating=1):
+${liked.slice(0, 15).map(fmt).join('\n') || 'none yet'}
+
+DISLIKED:
+${disliked.slice(0, 10).map(fmt).join('\n') || 'none yet'}
+
+NEVER SELECTED (in rotation but never assigned to any plan — ${neverPicked.length} total):
+${neverPicked.slice(0, 40).map(fmt).join('\n') || 'all recipes have been tried'}
+
+Tasks:
+1. Identify patterns in what this family loves (cuisines, ingredients, tags)
+2. For never-selected recipes: flag any that seem MISCLASSIFIED (wrong type, missing useful tags, or should be excluded as a dessert/drink/non-meal)
+3. Update the preferences markdown with your findings — be specific and actionable
+
+Return JSON:
+{
+  "updated_preferences": "full updated markdown content",
+  "misclassified": [{"id":"...","name":"...","issue":"e.g. tagged as main but is clearly a dessert","fix":{"should_exclude":true}}],
+  "summary": "2-3 sentence summary of patterns found"
+}
+
+Only flag CLEAR misclassifications. Keep the markdown concise and practical.` }
+  ], { temperature: 0.4, timeout: 120_000 });
+
+  if (result.updated_preferences) {
+    await writePreferences(result.updated_preferences);
+  }
+
+  // Apply misclassification fixes
+  for (const fix of (result.misclassified || [])) {
+    if (!fix.id || !fix.fix) continue;
+    try {
+      const recipe = recipes.find(r => r.id === fix.id);
+      if (fix.fix.should_exclude) {
+        await updateRecipe(fix.id, { in_rotation: false, aria_analyzed: true });
+      } else {
+        await updateRecipe(fix.id, { ...fix.fix, aria_analyzed: false }); // re-flag for re-analysis
+      }
+      console.log(`[aria-learn] fixed "${fix.name}": ${fix.issue}`);
+    } catch (err) {
+      console.warn(`[aria-learn] fix failed for ${fix.name}: ${err.message}`);
+    }
+  }
+
+  return {
+    summary: result.summary,
+    misclassified: result.misclassified || [],
+    neverSelected: neverPicked.length,
+  };
+}
+
+// Aria plans the full week — reasons about schedule, taste, variety
+async function planWithAria(weekOf) {
+  let plan = await getPlan(weekOf);
+  if (!plan) plan = await createPlan(weekOf);
+
+  const [events, recipes, prefs] = await Promise.all([
+    getCalendarEvents(14),
+    listRecipes({ in_rotation: 'true' }),
+    readPreferences(),
+  ]);
+
+  // Taste profile from ratings
+  const loved    = recipes.filter(r => r.rating === 2).map(r => r.name).slice(0, 10);
+  const liked    = recipes.filter(r => r.rating === 1).map(r => r.name).slice(0, 10);
+  const disliked = recipes.filter(r => r.rating === -1).map(r => r.name).slice(0, 5);
+
+  // Find recently used recipe IDs (last 3 plans) to avoid repeats
+  const recentIds = new Set();
+  try {
+    const session2 = driver.session();
+    try {
+      const recentR = await session2.run('MATCH (p:MealPlan) RETURN p.week_of, p.days ORDER BY p.week_of DESC LIMIT 4');
+      for (const rec of recentR.records) {
+        if (rec.get('p.week_of') === weekOf) continue;
+        try {
+          const days2 = JSON.parse(rec.get('p.days') || '[]');
+          for (const d of days2) {
+            if (d.adult_recipe_id) recentIds.add(d.adult_recipe_id);
+          }
+        } catch {}
+      }
+    } finally { await session2.close(); }
+  } catch {}
+
+  // Recipes never picked before (prioritize for variety)
+  const allPlanSession = driver.session();
+  const everPickedIds = new Set();
+  try {
+    const allR = await allPlanSession.run('MATCH (p:MealPlan) RETURN p.days');
+    for (const rec of allR.records) {
+      try {
+        const d2 = JSON.parse(rec.get('p.days') || '[]');
+        for (const d of d2) { if (d.adult_recipe_id) everPickedIds.add(d.adult_recipe_id); }
+      } catch {}
+    }
+  } finally { await allPlanSession.close(); }
+
+  const neverPicked = recipes.filter(r => r.type !== 'side' && !everPickedIds.has(r.id));
+
+  // Classify days from calendar
+  const days = plan.days.map(day => {
+    const { context, chrisHome, eventsSummary, contextReason } = classifyDay(events, day.date);
+    return { ...day, meal_context: context, chris_home: chrisHome,
+             events_summary: eventsSummary, context_reason: contextReason };
+  });
+
+  const dayLines = days.map(d =>
+    `${d.date} ${d.day_name}: context=${d.meal_context}` +
+    (d.chris_home ? '' : ', Chris away') +
+    (d.context_reason ? ` (${d.context_reason})` : '')
+  ).join('\n');
+
+  // Mains only for day assignment
+  const mains = recipes.filter(r => r.type !== 'side');
+  const recipeLines = mains.slice(0, 80).map(r =>
+    `${r.id}|${r.name}|${r.total_minutes || 0}min|veg:${!!r.vegetarian}|kids:${!!r.kid_friendly}|rated:${r.rating ?? 0}`
+  ).join('\n');
+
+  const recentNames = recipes.filter(r => recentIds.has(r.id)).map(r => r.name).slice(0, 10);
+  const neverPickedLines = neverPicked.slice(0, 20).map(r =>
+    `${r.id}|${r.name}|${r.total_minutes || 0}min|veg:${!!r.vegetarian}|kids:${!!r.kid_friendly}|rated:${r.rating ?? 0}`
+  ).join('\n');
+
+  const result = await ollamaChat([
+    { role: 'system', content: 'You are Aria, a thoughtful family meal planner. Return only valid JSON, no extra text.' },
+    { role: 'user', content: `Plan dinners for the week of ${weekOf}.
+
+Family: Jill and Chris (adults) + kids ages 6 and 9.
+
+PREFERENCES & NOTES:
+${prefs}
+
+TASTE PROFILE:
+Loved: ${loved.join(', ') || 'none rated yet'}
+Liked: ${liked.join(', ') || 'none rated yet'}
+Avoid: ${disliked.join(', ') || 'none flagged'}
+Used recently (avoid repeating): ${recentNames.join(', ') || 'none'}
+
+WEEK SCHEDULE:
+${dayLines}
+
+Time rules: fast=max 30 min, super-fast=max 20 min. When Chris is away, prefer veg + kid-friendly.
+
+NEVER-TRIED RECIPES (give these priority for variety — try to use at least 2 this week):
+${neverPickedLines || 'all recipes have been tried before'}
+
+ALL RECIPES (id|name|minutes|veg|kids|rating):
+${recipeLines}
+
+Pick a unique adult_recipe_id for each day. No repeats. Vary cuisines. Respect time limits strictly.
+Prefer higher-rated and never-tried recipes. Avoid recently used recipes unless there's a good reason.
+
+Return JSON:
+{
+  "days": [
+    {"date":"YYYY-MM-DD","adult_recipe_id":"id or null","kids_recipe_id":null,"reasoning":"one sentence"}
+  ],
+  "week_summary": "2-3 sentences summarizing the week"
+}` }
+  ], { temperature: 0.7, timeout: 120_000 });
+
+  // Validate recipe IDs
+  const validIds = new Set(recipes.map(r => r.id));
+  const updatedDays = days.map(day => {
+    const pick = (result.days || []).find(d => d.date === day.date);
+    if (!pick) return day;
+    return {
+      ...day,
+      adult_recipe_id: (pick.adult_recipe_id && validIds.has(pick.adult_recipe_id)) ? pick.adult_recipe_id : day.adult_recipe_id,
+      kids_recipe_id:  (pick.kids_recipe_id  && validIds.has(pick.kids_recipe_id))  ? pick.kids_recipe_id  : day.kids_recipe_id,
+      plan_notes: pick.reasoning || null,
+    };
+  });
+
+  const session = driver.session();
+  try {
+    await session.run(
+      'MATCH (p:MealPlan {week_of: $weekOf}) SET p.days = $days, p.aria_notes = $notes',
+      { weekOf, days: JSON.stringify(updatedDays), notes: result.week_summary || null }
+    );
+    return { ...plan, days: updatedDays, aria_notes: result.week_summary };
+  } finally {
+    await session.close();
+  }
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -221,6 +592,20 @@ function weekDates(weekOf) {
 
 // ─── Recipe scraper ──────────────────────────────────────────────────────────
 
+// Decode HTML entities in recipe names: &quot; &#8217; &amp; etc.
+function decodeHtmlEntities(str) {
+  if (!str) return str;
+  return str
+    .replace(/&quot;/gi, '"')
+    .replace(/&#x27;|&#39;|&apos;/gi, "'")
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}
+
 // Parse ISO 8601 duration (PT30M, PT1H30M, PT1H) → minutes
 function parseDuration(str) {
   if (!str) return 0;
@@ -330,11 +715,11 @@ async function scrapeRecipe(url) {
   if (!schema) {
     // Fallback: grab <title> and og:image
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-    const name = titleMatch ? titleMatch[1].replace(/\s*[|\-–].*$/, '').trim() : '';
+    const name = decodeHtmlEntities(titleMatch ? titleMatch[1].replace(/\s*[|\-–].*$/, '').trim() : '');
     return { name, url, source, image: ogImage };
   }
 
-  const name = typeof schema.name === 'string' ? schema.name.trim() : '';
+  const name = decodeHtmlEntities(typeof schema.name === 'string' ? schema.name.trim() : '');
   const prepMinutes  = parseDuration(schema.prepTime);
   const cookMinutes  = parseDuration(schema.cookTime);
   const totalMinutes = parseDuration(schema.totalTime) || (prepMinutes + cookMinutes);
@@ -808,6 +1193,7 @@ async function discoverRecipes(limit = 15) {
   }
 
   console.log(`[discover] done — added ${added.length} recipes`);
+  analyzeNewRecipesBackground(added);
   return { added };
 }
 
@@ -1227,6 +1613,7 @@ async function scanPinterestBoard(boardId) {
   }
 
   console.log(`[pinterest] board scan done — added ${added.length}, skipped ${skipped}`);
+  analyzeNewRecipesBackground(added);
   return { added, skipped, pin_count: urls.length };
 }
 
@@ -1267,6 +1654,12 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'POST' && !id) {
         const body = await parseBody(req);
         json(res, 201, await createRecipe(body));
+        return;
+      }
+      // POST /meals/recipes/analyze — batch-analyze unclassified recipes in background
+      if (req.method === 'POST' && id === 'analyze') {
+        analyzeAllRecipes().catch(() => {});
+        json(res, 202, { ok: true, message: 'Analysis started' });
         return;
       }
       // POST /meals/recipes/deduplicate
@@ -1349,6 +1742,11 @@ const server = http.createServer(async (req, res) => {
         json(res, 200, await generatePlan(id));
         return;
       }
+      // POST /meals/plans/:week/plan-with-aria
+      if (req.method === 'POST' && id && sub === 'plan-with-aria') {
+        json(res, 200, await planWithAria(id));
+        return;
+      }
       // POST /meals/plans/:week/clear
       if (req.method === 'POST' && id && sub === 'clear') {
         const plan = await clearPlanRecipes(id);
@@ -1417,6 +1815,27 @@ const server = http.createServer(async (req, res) => {
         const body = await parseBody(req);
         await updateStaples(body);
         json(res, 200, { ok: true });
+        return;
+      }
+    }
+
+    // ── Preferences ───────────────────────────────────────────────────────────
+    if (section === 'preferences') {
+      // GET /meals/preferences
+      if (req.method === 'GET' && !id) {
+        json(res, 200, { content: await readPreferences() });
+        return;
+      }
+      // PATCH /meals/preferences
+      if (req.method === 'PATCH' && !id) {
+        const body = await parseBody(req);
+        await writePreferences(body.content || '');
+        json(res, 200, { ok: true });
+        return;
+      }
+      // POST /meals/preferences/learn — Aria analyzes patterns and updates preferences
+      if (req.method === 'POST' && id === 'learn') {
+        json(res, 200, await ariaLearn());
         return;
       }
     }

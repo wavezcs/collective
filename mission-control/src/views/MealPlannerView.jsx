@@ -2,15 +2,16 @@ import React, { useState, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   listRecipes, createRecipe, updateRecipe, deleteRecipe, rateRecipe, scrapeRecipe,
-  listPlans, getPlan, createPlan, updateDay, generatePlan, clearPlan,
+  listPlans, getPlan, createPlan, updateDay, generatePlan, clearPlan, planWithAria,
   getGrocery, generateGrocery, updateGroceryItem, addGroceryItem, removeGroceryItem,
-  getStaples, updateStaples, deduplicateRecipes, discoverRecipes,
-  listPinterestBoards, addPinterestBoard, deletePinterestBoard, scanPinterestBoard
+  getStaples, updateStaples, deduplicateRecipes, discoverRecipes, analyzeRecipes,
+  listPinterestBoards, addPinterestBoard, deletePinterestBoard, scanPinterestBoard,
+  getPreferences, updatePreferences, ariaLearn
 } from '../api/meals'
 import {
   ChefHat, Zap, Clock, Star, Plus, Trash2, ThumbsUp, ThumbsDown,
   Heart, ShoppingCart, Calendar, ChevronLeft, ChevronRight,
-  Check, Copy, User, UserX, RefreshCw, Loader2, Pencil, Download, Shuffle, Search
+  Check, Copy, User, UserX, RefreshCw, Loader2, Pencil, Download, Shuffle, Search, Sparkles, FileText, Save
 } from 'lucide-react'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -718,6 +719,11 @@ function WeekTab({ recipes }) {
     onSuccess: () => qc.invalidateQueries(['plan', weekOf])
   })
 
+  const ariaPlanning = useMutation({
+    mutationFn: () => planWithAria(weekOf),
+    onSuccess: () => qc.invalidateQueries(['plan', weekOf])
+  })
+
   const clearWeek = useMutation({
     mutationFn: () => clearPlan(weekOf),
     onSuccess: () => { qc.invalidateQueries(['plan', weekOf]); setConfirmClear(false) }
@@ -882,7 +888,7 @@ function WeekTab({ recipes }) {
       </div>
 
       {/* Action buttons */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-borg-border shrink-0">
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-borg-border shrink-0 flex-wrap">
         {!plan && (
           <button onClick={() => ensurePlan.mutate()}
             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-borg-border
@@ -891,11 +897,21 @@ function WeekTab({ recipes }) {
           </button>
         )}
         {plan && (
-          <button onClick={() => generate.mutate()} disabled={generate.isPending}
+          <button onClick={() => ariaPlanning.mutate()} disabled={ariaPlanning.isPending || generate.isPending}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-purple-400/40
+                       text-purple-300 hover:text-purple-200 hover:bg-purple-500/10 transition-colors disabled:opacity-50">
+            {ariaPlanning.isPending
+              ? <><Loader2 size={12} className="animate-spin" /> Aria is planning…</>
+              : <><Sparkles size={12} /> Plan with Aria</>
+            }
+          </button>
+        )}
+        {plan && (
+          <button onClick={() => generate.mutate()} disabled={generate.isPending || ariaPlanning.isPending}
             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-borg-border
                        text-borg-muted hover:text-borg-text hover:border-borg-green/40 transition-colors disabled:opacity-50">
             {generate.isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-            Auto-fill from calendar
+            Auto-fill
           </button>
         )}
         {plan && !confirmClear && (
@@ -920,6 +936,14 @@ function WeekTab({ recipes }) {
           </div>
         )}
       </div>
+
+      {/* Aria week summary */}
+      {plan?.aria_notes && (
+        <div className="px-4 py-2 border-b border-borg-border shrink-0 flex items-start gap-2 bg-purple-500/5">
+          <Sparkles size={12} className="text-purple-400 shrink-0 mt-0.5" />
+          <p className="text-xs text-purple-200/80 leading-relaxed">{plan.aria_notes}</p>
+        </div>
+      )}
 
       {/* Day rows */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
@@ -975,8 +999,16 @@ function WeekTab({ recipes }) {
 
             {/* Context reason — why this day is fast/special */}
             {day.context_reason && day.meal_context !== 'normal' && (
-              <div className="text-xs text-borg-muted/80 mb-2">
+              <div className="text-xs text-borg-muted/80 mb-1">
                 <Zap size={9} className="inline mr-1 opacity-60" />{day.context_reason}
+              </div>
+            )}
+
+            {/* Aria's reasoning for this day's picks */}
+            {day.plan_notes && (
+              <div className="text-xs text-purple-300/60 mb-1.5 flex items-start gap-1">
+                <Sparkles size={9} className="shrink-0 mt-0.5 opacity-70" />
+                <span>{day.plan_notes}</span>
               </div>
             )}
 
@@ -1044,6 +1076,11 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
     onSuccess: (data) => { qc.invalidateQueries(['recipes']); onRefresh(); setDedupResult(data) }
   })
 
+  const analyze = useMutation({
+    mutationFn: analyzeRecipes,
+    onSuccess: () => setTimeout(() => { qc.invalidateQueries(['recipes']); onRefresh() }, 5000)
+  })
+
   const rate = useMutation({
     mutationFn: ({ id, rating }) => rateRecipe(id, rating),
     onSuccess: () => { qc.invalidateQueries(['recipes']); onRefresh() }
@@ -1092,6 +1129,13 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
               className="flex items-center gap-1.5 text-xs text-borg-muted px-2.5 py-1.5 rounded border border-borg-border
                          hover:text-borg-text hover:border-borg-green/40 transition-colors">
               <Download size={12} /> Pinterest
+            </button>
+            <button onClick={() => analyze.mutate()} disabled={analyze.isPending}
+              title="Aria classifies vegetarian, kid-friendly, side dish for all unanalyzed recipes"
+              className="flex items-center gap-1.5 text-xs text-purple-300 px-2.5 py-1.5 rounded border border-purple-400/30
+                         hover:bg-purple-500/10 transition-colors disabled:opacity-50">
+              {analyze.isPending ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+              {analyze.isPending ? 'Analyzing…' : 'Aria analyze'}
             </button>
             <button onClick={() => { setDedupResult(null); dedup.mutate() }} disabled={dedup.isPending}
               title="Remove duplicate recipes (same URL)"
@@ -1161,6 +1205,7 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
                   {r.vegetarian && <span className="text-emerald-400">veg</span>}
                   {r.kid_friendly && <span className="text-blue-400">kids</span>}
                   {r.type === 'side' && <span className="text-purple-400">side</span>}
+                  {r.aria_analyzed && <Sparkles size={9} className="text-purple-400/60" title="Analyzed by Aria" />}
                   {!r.in_rotation && <span className="text-borg-dim">off-rotation</span>}
                 </div>
 
@@ -1595,10 +1640,13 @@ function DiscoveredTab({ onRefresh }) {
                       className="text-borg-dim hover:text-borg-green text-xs shrink-0 mt-0.5 transition-colors">↗</a>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-xs text-borg-muted mb-3">
+                <div className="flex items-center gap-2 text-xs text-borg-muted mb-3 flex-wrap">
                   {r.source && <span>{r.source}</span>}
                   {r.total_minutes > 0 && <span>{r.total_minutes}m</span>}
                   {r.vegetarian && <span className="text-green-500">veg</span>}
+                  {r.kid_friendly && <span className="text-blue-400">kids ✓</span>}
+                  {r.type === 'side' && <span className="text-purple-400">side</span>}
+                  {r.aria_analyzed && <Sparkles size={9} className="text-purple-400/70" title="Analyzed by Aria" />}
                 </div>
                 <div className="flex gap-1.5 mt-auto">
                   <button
@@ -1623,6 +1671,119 @@ function DiscoveredTab({ onRefresh }) {
   )
 }
 
+// ─── Preferences Tab ──────────────────────────────────────────────────────────
+
+function PreferencesTab() {
+  const qc = useQueryClient()
+  const [dirty, setDirty] = useState(false)
+  const [learnResult, setLearnResult] = useState(null)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['preferences'],
+    queryFn: getPreferences,
+  })
+
+  const [content, setContent] = useState('')
+
+  // Sync loaded content into state once
+  React.useEffect(() => {
+    if (data?.content !== undefined && !dirty) {
+      setContent(data.content)
+    }
+  }, [data])
+
+  const save = useMutation({
+    mutationFn: () => updatePreferences(content),
+    onSuccess: () => { setDirty(false); qc.invalidateQueries(['preferences']) }
+  })
+
+  const learn = useMutation({
+    mutationFn: ariaLearn,
+    onSuccess: (result) => {
+      setLearnResult(result)
+      qc.invalidateQueries(['preferences'])
+      qc.invalidateQueries(['recipes'])
+      // Reload the content after Aria updates it
+      setTimeout(() => { setDirty(false); qc.invalidateQueries(['preferences']) }, 500)
+    }
+  })
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-borg-border shrink-0">
+        <div>
+          <div className="text-borg-text font-semibold">Preferences</div>
+          <div className="text-borg-muted text-sm">Aria reads and updates this when planning</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => learn.mutate()}
+            disabled={learn.isPending}
+            title="Aria reviews rating patterns, never-tried recipes, and updates this file"
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-purple-400/40
+                       text-purple-300 hover:text-purple-200 hover:bg-purple-500/10 transition-colors disabled:opacity-50">
+            {learn.isPending
+              ? <><Loader2 size={12} className="animate-spin" /> Aria is reviewing…</>
+              : <><Sparkles size={12} /> Ask Aria to review</>
+            }
+          </button>
+          <button
+            onClick={() => save.mutate()}
+            disabled={!dirty || save.isPending}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-borg-green/40
+                       text-borg-green hover:bg-borg-panel transition-colors disabled:opacity-40">
+            <Save size={12} /> {save.isPending ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
+
+      {/* Aria learn result */}
+      {learnResult && (
+        <div className="px-5 py-3 border-b border-borg-border bg-purple-500/5 shrink-0">
+          <div className="flex items-start gap-2">
+            <Sparkles size={12} className="text-purple-400 shrink-0 mt-0.5" />
+            <div className="text-xs text-purple-200/80 space-y-1">
+              <div>{learnResult.summary}</div>
+              {learnResult.misclassified?.length > 0 && (
+                <div className="text-purple-300/60">
+                  Fixed {learnResult.misclassified.length} misclassified recipe{learnResult.misclassified.length !== 1 ? 's' : ''}.
+                </div>
+              )}
+              {learnResult.neverSelected > 0 && (
+                <div className="text-purple-300/60">{learnResult.neverSelected} recipes in rotation have never been selected.</div>
+              )}
+            </div>
+            <button onClick={() => setLearnResult(null)}
+              className="ml-auto text-borg-dim hover:text-borg-muted text-base leading-none shrink-0">×</button>
+          </div>
+        </div>
+      )}
+
+      {/* Editor */}
+      <div className="flex-1 overflow-hidden flex flex-col p-4">
+        {isLoading
+          ? <div className="text-center text-borg-dim py-8">Loading…</div>
+          : (
+            <textarea
+              value={content}
+              onChange={e => { setContent(e.target.value); setDirty(true) }}
+              spellCheck={false}
+              className="flex-1 w-full bg-borg-panel border border-borg-border rounded-lg px-4 py-3
+                         text-sm text-borg-text font-mono leading-relaxed resize-none
+                         focus:outline-none focus:border-borg-green/50 transition-colors"
+              placeholder="Loading preferences…"
+            />
+          )
+        }
+        {dirty && (
+          <div className="text-xs text-borg-dim mt-1.5">Unsaved changes — click Save to persist</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main View ────────────────────────────────────────────────────────────────
 
 export default function MealPlannerView() {
@@ -1635,10 +1796,11 @@ export default function MealPlannerView() {
   })
 
   const tabs = [
-    { id: 'week',       label: 'Week' },
-    { id: 'catalog',    label: 'Catalog' },
-    { id: 'grocery',    label: 'Grocery' },
-    { id: 'discovered', label: 'Discovered' },
+    { id: 'week',        label: 'Week' },
+    { id: 'catalog',     label: 'Catalog' },
+    { id: 'grocery',     label: 'Grocery' },
+    { id: 'discovered',  label: 'Discovered' },
+    { id: 'preferences', label: 'Preferences' },
   ]
 
   return (
@@ -1655,10 +1817,11 @@ export default function MealPlannerView() {
       <TabBar tabs={tabs} active={tab} onChange={t => setTab(t)} />
 
       <div className="flex-1 overflow-hidden flex flex-col">
-        {tab === 'week'       && <WeekTab recipes={recipes} />}
-        {tab === 'catalog'    && <CatalogTab recipes={recipes} isLoading={recipesLoading} onRefresh={refetchRecipes} />}
-        {tab === 'grocery'    && <GroceryTab />}
-        {tab === 'discovered' && <DiscoveredTab onRefresh={refetchRecipes} />}
+        {tab === 'week'        && <WeekTab recipes={recipes} />}
+        {tab === 'catalog'     && <CatalogTab recipes={recipes} isLoading={recipesLoading} onRefresh={refetchRecipes} />}
+        {tab === 'grocery'     && <GroceryTab />}
+        {tab === 'discovered'  && <DiscoveredTab onRefresh={refetchRecipes} />}
+        {tab === 'preferences' && <PreferencesTab />}
       </div>
     </div>
   )
