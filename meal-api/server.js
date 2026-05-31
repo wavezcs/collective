@@ -955,15 +955,80 @@ async function removeGroceryItem(weekOf, store, index) {
 
 // ─── Pinterest ───────────────────────────────────────────────────────────────
 
+const PINTEREST_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Cache-Control': 'no-cache',
+};
+
+// Extract external recipe links from a Pinterest pins object
+function extractPinLinks(pins) {
+  const urls = new Set();
+  for (const pin of Object.values(pins)) {
+    const link = pin?.link || pin?.rich_metadata?.url || pin?.story_pin_data?.pages?.[0]?.blocks?.[0]?.link?.url;
+    if (link && typeof link === 'string' && link.startsWith('http') && !/pinterest\.com|pin\.it/i.test(link)) {
+      urls.add(link);
+    }
+  }
+  return urls;
+}
+
+// Paginate a board using Pinterest's internal BoardFeedResource API
+async function paginateBoardFeed(boardId, boardPath, initialBookmark) {
+  const urls = new Set();
+  let bookmark = initialBookmark;
+  let page = 0;
+
+  while (page < 20) { // max 20 pages × 50 pins = 1000 pins
+    const options = { board_id: String(boardId), page_size: 50, add_vase: true };
+    if (bookmark) options.bookmarks = [bookmark];
+
+    const dataParam = encodeURIComponent(JSON.stringify({ options, context: {} }));
+    const apiUrl = `https://www.pinterest.com/resource/BoardFeedResource/get/?source_url=${encodeURIComponent(boardPath)}&data=${dataParam}&_=${Date.now()}`;
+
+    try {
+      const res = await fetch(apiUrl, {
+        headers: {
+          ...PINTEREST_HEADERS,
+          'Accept': 'application/json, text/javascript, */*, q=0.01',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-Pinterest-AppState': 'active',
+          'Referer': `https://www.pinterest.com${boardPath}`,
+        },
+        signal: AbortSignal.timeout(15_000),
+      });
+
+      if (!res.ok) break;
+      const json = await res.json();
+      const pins = json?.resource_response?.data;
+      if (!Array.isArray(pins) || pins.length === 0) break;
+
+      for (const pin of pins) {
+        const link = pin?.link || pin?.rich_metadata?.url;
+        if (link && typeof link === 'string' && link.startsWith('http') && !/pinterest\.com|pin\.it/i.test(link)) {
+          urls.add(link);
+        }
+      }
+
+      bookmark = json?.resource_response?.bookmark;
+      if (!bookmark || bookmark === '-end-') break;
+
+      page++;
+      await new Promise(r => setTimeout(r, 200));
+    } catch {
+      break;
+    }
+  }
+
+  console.log(`[pinterest] paginated ${page} pages, found ${urls.size} more links`);
+  return urls;
+}
+
 // Extract recipe URLs from a Pinterest board page
 async function scrapePinterestBoard(boardUrl) {
   const res = await fetch(boardUrl, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Cache-Control': 'no-cache',
-    },
+    headers: PINTEREST_HEADERS,
     signal: AbortSignal.timeout(20_000),
     redirect: 'follow',
   });
@@ -971,43 +1036,74 @@ async function scrapePinterestBoard(boardUrl) {
   const html = await res.text();
 
   const urls = new Set();
+  let boardId = null;
+  let boardPath = null;
+  let initialBookmark = null;
+
+  try { boardPath = new URL(boardUrl).pathname; } catch {}
 
   // Strategy 1: __PWS_DATA__ Redux state (main Pinterest data blob)
   const pwsMatch = html.match(/<script id="__PWS_DATA__">\s*window\.__PWS_DATA__\s*=\s*(\{[\s\S]*?\});\s*<\/script>/);
   if (pwsMatch) {
     try {
       const data = JSON.parse(pwsMatch[1]);
-      const pins = data?.props?.initialReduxState?.pins || {};
-      for (const pin of Object.values(pins)) {
-        const link = pin?.link || pin?.rich_metadata?.url;
-        if (link && !/pinterest\.com|pin\.it/i.test(link)) urls.add(link);
+      const state = data?.props?.initialReduxState || {};
+
+      // Extract initial pin links
+      const pinUrls = extractPinLinks(state.pins || {});
+      for (const u of pinUrls) urls.add(u);
+
+      // Extract board_id for pagination
+      const boards = state.boards || {};
+      for (const board of Object.values(boards)) {
+        if (board?.url && boardPath && boardPath.startsWith(board.url.replace(/\/?$/, ''))) {
+          boardId = board.id;
+          break;
+        }
+        // Also try matching by checking if the board URL is a prefix
+        if (!boardId && board?.id) boardId = board.id; // fallback: use any board
+      }
+
+      // Extract pagination bookmark from feed state
+      const feeds = state.feeds || {};
+      for (const feed of Object.values(feeds)) {
+        if (feed?.bookmark) { initialBookmark = feed.bookmark; break; }
       }
     } catch {}
   }
 
-  // Strategy 2: JSON "link" values for external URLs anywhere in page
-  if (urls.size === 0) {
+  // Strategy 2: JSON "link" values anywhere in page (catches Pinterest v2 format)
+  if (urls.size < 10) {
     const linkRe = /"link"\s*:\s*"(https?:\/\/(?!(?:[^"\/]*\.)?pinterest\.com|pin\.it)[^"]+)"/g;
     let m;
     while ((m = linkRe.exec(html)) !== null) urls.add(m[1]);
   }
 
-  // Strategy 3: og:see_also or <a href> pointing off-domain (last resort)
-  if (urls.size === 0) {
+  // Strategy 3: href attributes pointing off-domain (last resort)
+  if (urls.size < 5) {
     const hrefRe = /href="(https?:\/\/(?!(?:[^"\/]*\.)?pinterest\.com|pin\.it)[^"]+)"/g;
     let m;
     while ((m = hrefRe.exec(html)) !== null) {
       const u = m[1];
-      // Only keep URLs that look like recipes (have a path, not just a domain)
       try { if (new URL(u).pathname.length > 3) urls.add(u); } catch {}
     }
   }
+
+  console.log(`[pinterest] initial scrape: ${urls.size} links, boardId=${boardId}`);
+
+  // Paginate via internal API to get remaining pins
+  if (boardId && boardPath) {
+    const moreUrls = await paginateBoardFeed(boardId, boardPath, initialBookmark);
+    for (const u of moreUrls) urls.add(u);
+  }
+
+  console.log(`[pinterest] total links found: ${urls.size}`);
 
   // Board name from <title>
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
   const name = titleMatch ? titleMatch[1].replace(/\s*[\|–\-].*$/, '').trim() : boardUrl;
 
-  return { urls: [...urls].slice(0, 60), name };
+  return { urls: [...urls], name };
 }
 
 // Check if a recipe URL already exists
