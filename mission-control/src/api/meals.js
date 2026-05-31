@@ -212,6 +212,18 @@ export async function removeGroceryItem(weekOf, store, index) {
   return r.json()
 }
 
+// ─── Calendar ─────────────────────────────────────────────────────────────────
+
+export async function getCalendarEvents() {
+  const r = await fetch(`${BASE}/calendar`)
+  return r.json()
+}
+
+export async function syncCalendar(weekOf) {
+  const r = await fetch(`${BASE}/plans/${weekOf}/sync-calendar`, { method: 'POST' })
+  return r.json()
+}
+
 // ─── Preferences ──────────────────────────────────────────────────────────────
 
 export async function getPreferences() {

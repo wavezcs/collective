@@ -1815,6 +1815,22 @@ const server = http.createServer(async (req, res) => {
         json(res, 200, job || { status: 'idle', step: '' });
         return;
       }
+      // POST /meals/plans/:week/sync-calendar — re-fetch calendar and update day contexts
+      if (req.method === 'POST' && id && sub === 'sync-calendar') {
+        const plan = await getPlan(id);
+        if (!plan) { json(res, 404, { error: 'Not found' }); return; }
+        const events = await getCalendarEvents(14);
+        const updatedDays = plan.days.map(day => {
+          const { context, chrisHome, eventsSummary, contextReason } = classifyDay(events, day.date);
+          return { ...day, meal_context: context, chris_home: chrisHome, events_summary: eventsSummary, context_reason: contextReason };
+        });
+        const session = driver.session();
+        try {
+          await session.run('MATCH (p:MealPlan {week_of: $weekOf}) SET p.days = $days', { weekOf: id, days: JSON.stringify(updatedDays) });
+        } finally { await session.close(); }
+        json(res, 200, { ...plan, days: updatedDays, events });
+        return;
+      }
       // POST /meals/plans/:week/clear
       if (req.method === 'POST' && id && sub === 'clear') {
         const plan = await clearPlanRecipes(id);
@@ -1894,6 +1910,16 @@ const server = http.createServer(async (req, res) => {
         const body = await parseBody(req);
         await updateStaples(body);
         json(res, 200, { ok: true });
+        return;
+      }
+    }
+
+    // ── Calendar ──────────────────────────────────────────────────────────────
+    if (section === 'calendar') {
+      // GET /meals/calendar — return upcoming 14-day events
+      if (req.method === 'GET' && !id) {
+        const events = await getCalendarEvents(14);
+        json(res, 200, { events });
         return;
       }
     }

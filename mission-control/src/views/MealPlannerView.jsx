@@ -6,7 +6,7 @@ import {
   getGrocery, generateGrocery, updateGroceryItem, addGroceryItem, removeGroceryItem,
   getStaples, updateStaples, deduplicateRecipes, discoverRecipes, analyzeRecipes, getAnalyzeStatus,
   listPinterestBoards, addPinterestBoard, deletePinterestBoard, scanPinterestBoard,
-  getPreferences, updatePreferences, ariaLearn, getPlanStatus, clearGrocery
+  getPreferences, updatePreferences, ariaLearn, getPlanStatus, clearGrocery, syncCalendar
 } from '../api/meals'
 import {
   ChefHat, Zap, Clock, Star, Plus, Trash2, ThumbsUp, ThumbsDown,
@@ -762,6 +762,11 @@ function WeekTab({ recipes }) {
     onSuccess: () => { qc.invalidateQueries(['plan', weekOf]); setConfirmClear(false) }
   })
 
+  const calSync = useMutation({
+    mutationFn: () => syncCalendar(weekOf),
+    onSuccess: () => qc.invalidateQueries(['plan', weekOf])
+  })
+
   const pickMeal = useMutation({
     mutationFn: ({ date, slot, recipe_id }) => updateDay(weekOf, date, {
       [slot === 'kids' ? 'kids_recipe_id' : 'adult_recipe_id']: recipe_id
@@ -969,6 +974,15 @@ function WeekTab({ recipes }) {
                        text-borg-muted hover:text-borg-text hover:border-borg-green/40 transition-colors disabled:opacity-50">
             {generate.isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
             Auto-fill
+          </button>
+        )}
+        {plan && (
+          <button onClick={() => calSync.mutate()} disabled={calSync.isPending}
+            title="Re-fetch Google Calendar and update day contexts (fast/special/Chris away)"
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-borg-border
+                       text-borg-muted hover:text-borg-text hover:border-borg-green/40 transition-colors disabled:opacity-50">
+            {calSync.isPending ? <Loader2 size={12} className="animate-spin" /> : <Calendar size={12} />}
+            {calSync.isPending ? 'Syncing…' : calSync.isSuccess ? 'Synced!' : 'Sync calendar'}
           </button>
         )}
         {plan && !confirmClear && (
