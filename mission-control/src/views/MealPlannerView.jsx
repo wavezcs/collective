@@ -4,13 +4,13 @@ import {
   listRecipes, createRecipe, updateRecipe, deleteRecipe, rateRecipe, scrapeRecipe,
   listPlans, getPlan, createPlan, updateDay, generatePlan, clearPlan,
   getGrocery, generateGrocery, updateGroceryItem, addGroceryItem, removeGroceryItem,
-  getStaples, updateStaples, deduplicateRecipes,
+  getStaples, updateStaples, deduplicateRecipes, discoverRecipes,
   listPinterestBoards, addPinterestBoard, deletePinterestBoard, scanPinterestBoard
 } from '../api/meals'
 import {
   ChefHat, Zap, Clock, Star, Plus, Trash2, ThumbsUp, ThumbsDown,
   Heart, ShoppingCart, Calendar, ChevronLeft, ChevronRight,
-  Check, Copy, User, UserX, RefreshCw, Loader2, Pencil, Download, Shuffle
+  Check, Copy, User, UserX, RefreshCw, Loader2, Pencil, Download, Shuffle, Search
 } from 'lucide-react'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -1396,20 +1396,150 @@ function GroceryTab() {
   )
 }
 
+// ─── Discovered Tab ───────────────────────────────────────────────────────────
+
+function DiscoveredTab({ onRefresh }) {
+  const qc = useQueryClient()
+  const [search, setSearch] = useState('')
+  const [discoverResult, setDiscoverResult] = useState(null)
+
+  const { data: discovered = [], isLoading } = useQuery({
+    queryKey: ['recipes-discovered'],
+    queryFn: () => listRecipes({ in_rotation: false }),
+    refetchInterval: 30_000
+  })
+
+  const approve = useMutation({
+    mutationFn: (id) => updateRecipe(id, { in_rotation: true }),
+    onSuccess: () => { qc.invalidateQueries(['recipes']); qc.invalidateQueries(['recipes-discovered']); onRefresh() }
+  })
+
+  const remove = useMutation({
+    mutationFn: deleteRecipe,
+    onSuccess: () => qc.invalidateQueries(['recipes-discovered'])
+  })
+
+  const discover = useMutation({
+    mutationFn: () => discoverRecipes(15),
+    onSuccess: (data) => { qc.invalidateQueries(['recipes-discovered']); setDiscoverResult(data) }
+  })
+
+  const filtered = discovered.filter(r => !search || r.name.toLowerCase().includes(search.toLowerCase()))
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-borg-border shrink-0">
+        <div>
+          <div className="text-borg-text font-semibold">Discovered</div>
+          <div className="text-borg-muted text-sm">{discovered.length} pending review</div>
+        </div>
+        <button
+          onClick={() => { setDiscoverResult(null); discover.mutate() }}
+          disabled={discover.isPending}
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-borg-green/40
+                     text-borg-green hover:bg-borg-panel transition-colors disabled:opacity-50 shrink-0">
+          {discover.isPending ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
+          {discover.isPending ? 'Searching…' : 'Find similar recipes'}
+        </button>
+      </div>
+
+      {discoverResult != null && (
+        <div className="px-5 py-2 text-xs border-b border-borg-border shrink-0
+                        text-borg-green bg-borg-green/5">
+          Found {discoverResult.added?.length || 0} new recipe{discoverResult.added?.length !== 1 ? 's' : ''}
+          {discoverResult.added?.length === 0 && ' — all known recipes on these sites are already in your catalog'}
+        </div>
+      )}
+
+      <div className="px-5 py-2 border-b border-borg-border shrink-0">
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Filter discovered recipes…"
+          className="w-full bg-borg-panel border border-borg-border rounded px-3 py-1.5 text-sm text-borg-text
+                     placeholder-borg-dim focus:outline-none focus:border-borg-green/50"
+        />
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4">
+        {isLoading && <div className="text-center text-borg-dim py-8">Loading…</div>}
+        {!isLoading && filtered.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full text-center space-y-3">
+            <Search size={32} className="text-borg-border" />
+            <div>
+              <div className="text-borg-text font-medium">No discovered recipes</div>
+              <div className="text-borg-muted text-sm mt-0.5">Click "Find similar recipes" to search the web.</div>
+            </div>
+          </div>
+        )}
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))' }}>
+          {filtered.map(r => (
+            <div key={r.id}
+              className="group bg-borg-surface border border-borg-border/60 rounded-xl overflow-hidden flex flex-col
+                         hover:border-borg-border transition-all">
+              <div className="relative bg-borg-panel" style={{ paddingBottom: '58%' }}>
+                {r.image
+                  ? <img src={r.image} alt={r.name}
+                      className="absolute inset-0 w-full h-full object-cover"
+                      onError={e => { e.currentTarget.parentElement.classList.add('hidden') }} />
+                  : <div className="absolute inset-0 flex items-center justify-center">
+                      <ChefHat size={24} className="text-borg-border/60" />
+                    </div>
+                }
+              </div>
+              <div className="p-3 flex flex-col flex-1">
+                <div className="flex items-start gap-1 mb-1">
+                  <span className="text-borg-text text-sm font-medium leading-snug flex-1 line-clamp-2">{r.name}</span>
+                  {r.url && (
+                    <a href={r.url} target="_blank" rel="noopener noreferrer"
+                      className="text-borg-dim hover:text-borg-green text-xs shrink-0 mt-0.5 transition-colors">↗</a>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 text-xs text-borg-muted mb-3">
+                  {r.source && <span>{r.source}</span>}
+                  {r.total_minutes > 0 && <span>{r.total_minutes}m</span>}
+                  {r.vegetarian && <span className="text-green-500">veg</span>}
+                </div>
+                <div className="flex gap-1.5 mt-auto">
+                  <button
+                    onClick={() => approve.mutate(r.id)}
+                    className="flex-1 py-1.5 rounded text-xs bg-borg-green/10 border border-borg-green/30 text-borg-green
+                               hover:bg-borg-green/20 transition-colors font-medium">
+                    Add to rotation
+                  </button>
+                  <button
+                    onClick={() => remove.mutate(r.id)}
+                    className="p-1.5 rounded text-borg-dim hover:text-red-400 hover:bg-borg-panel
+                               transition-colors border border-borg-border">
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main View ────────────────────────────────────────────────────────────────
 
 export default function MealPlannerView() {
   const [tab, setTab] = useState('week')
 
+  // All in-rotation recipes for Week + Catalog
   const { data: recipes = [], isLoading: recipesLoading, refetch: refetchRecipes } = useQuery({
     queryKey: ['recipes'],
-    queryFn: () => listRecipes()
+    queryFn: () => listRecipes({ in_rotation: true })
   })
 
   const tabs = [
-    { id: 'week',    label: 'Week' },
-    { id: 'catalog', label: 'Catalog' },
-    { id: 'grocery', label: 'Grocery' },
+    { id: 'week',       label: 'Week' },
+    { id: 'catalog',    label: 'Catalog' },
+    { id: 'grocery',    label: 'Grocery' },
+    { id: 'discovered', label: 'Discovered' },
   ]
 
   return (
@@ -1419,16 +1549,17 @@ export default function MealPlannerView() {
         <ChefHat size={18} className="text-borg-green" />
         <div>
           <div className="text-borg-text font-semibold">Meal Planner</div>
-          <div className="text-borg-muted text-sm">{recipes.length} recipes</div>
+          <div className="text-borg-muted text-sm">{recipes.length} recipes in rotation</div>
         </div>
       </div>
 
-      <TabBar tabs={tabs} active={tab} onChange={t => { setTab(t) }} />
+      <TabBar tabs={tabs} active={tab} onChange={t => setTab(t)} />
 
       <div className="flex-1 overflow-hidden flex flex-col">
-        {tab === 'week'    && <WeekTab recipes={recipes} />}
-        {tab === 'catalog' && <CatalogTab recipes={recipes} isLoading={recipesLoading} onRefresh={refetchRecipes} />}
-        {tab === 'grocery' && <GroceryTab />}
+        {tab === 'week'       && <WeekTab recipes={recipes} />}
+        {tab === 'catalog'    && <CatalogTab recipes={recipes} isLoading={recipesLoading} onRefresh={refetchRecipes} />}
+        {tab === 'grocery'    && <GroceryTab />}
+        {tab === 'discovered' && <DiscoveredTab onRefresh={refetchRecipes} />}
       </div>
     </div>
   )

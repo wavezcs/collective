@@ -711,6 +711,105 @@ async function deduplicateRecipes() {
   }
 }
 
+// Parse <loc> entries from sitemap XML
+function parseSitemapXml(xml) {
+  const urls = [];
+  const locRe = /<loc>([^<]+)<\/loc>/g;
+  let m;
+  while ((m = locRe.exec(xml)) !== null) urls.push(m[1].trim());
+  return urls;
+}
+
+// Fetch URLs from a sitemap, following one level of sitemap index if needed
+async function fetchSitemapUrls(sitemapUrl) {
+  const res = await fetch(sitemapUrl, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; meal-planner/1.0)' },
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!res.ok) return [];
+  const xml = await res.text();
+  const urls = parseSitemapXml(xml);
+
+  // If it's a sitemap index, follow the first sub-sitemap that looks recipe-related
+  if (xml.includes('<sitemapindex') || (urls.length > 0 && urls[0].endsWith('.xml'))) {
+    const subSitemaps = urls.filter(u => /recipe|post|article|content/i.test(u));
+    const target = subSitemaps[0] || urls[0];
+    if (target) {
+      try {
+        const subRes = await fetch(target, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; meal-planner/1.0)' },
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (subRes.ok) return parseSitemapXml(await subRes.text());
+      } catch {}
+    }
+  }
+  return urls;
+}
+
+// Discover new recipes from known recipe sites via sitemaps, saved as in_rotation: false
+async function discoverRecipes(limit = 15) {
+  const sites = [
+    { host: 'cookieandkate.com',    sitemap: '/sitemap.xml' },
+    { host: 'smittenkitchen.com',   sitemap: '/sitemap.xml' },
+    { host: 'minimalistbaker.com',  sitemap: '/sitemap_index.xml' },
+    { host: 'halfbakedharvest.com', sitemap: '/sitemap.xml' },
+    { host: 'budgetbytes.com',      sitemap: '/sitemap.xml' },
+    { host: 'food52.com',           sitemap: '/sitemap.xml' },
+    { host: 'simplyrecipes.com',    sitemap: '/sitemap.xml' },
+    { host: 'skinnytaste.com',      sitemap: '/sitemap.xml' },
+    { host: 'wellplated.com',       sitemap: '/sitemap.xml' },
+    { host: 'thekitchn.com',        sitemap: '/sitemap.xml' },
+  ];
+
+  // Shuffle sites to vary results each run
+  sites.sort(() => Math.random() - 0.5);
+
+  const added = [];
+
+  for (const site of sites) {
+    if (added.length >= limit) break;
+    try {
+      const allUrls = await fetchSitemapUrls(`https://${site.host}${site.sitemap}`);
+
+      // Filter for page URLs that look like recipes (not tags, categories, pages)
+      const recipeUrls = allUrls.filter(u => {
+        try {
+          const p = new URL(u).pathname;
+          return p.length > 5 && !/\.(xml|json|rss|css|js)/.test(p) &&
+            !/\/(tag|category|author|page|feed|wp-content|wp-admin)\//i.test(p);
+        } catch { return false; }
+      });
+
+      // Randomly sample up to 8 from this site
+      const sample = recipeUrls.sort(() => Math.random() - 0.5).slice(0, 8);
+
+      for (const url of sample) {
+        if (added.length >= limit) break;
+        const existing = await getRecipeByUrl(url);
+        if (existing) continue;
+
+        await new Promise(r => setTimeout(r, 350));
+
+        try {
+          const scraped = await scrapeRecipe(url);
+          if (!scraped.name) continue;
+          const recipe = await createRecipe({ ...scraped, in_rotation: false, rating: 0 });
+          added.push({ id: recipe.id, name: scraped.name, url });
+          console.log(`[discover] added: ${scraped.name} (${url})`);
+        } catch (err) {
+          console.warn(`[discover] skipped ${url}: ${err.message}`);
+        }
+      }
+    } catch (err) {
+      console.warn(`[discover] site ${site.host} failed: ${err.message}`);
+    }
+  }
+
+  console.log(`[discover] done — added ${added.length} recipes`);
+  return { added };
+}
+
 async function getStaples() {
   const session = driver.session();
   try {
@@ -1076,6 +1175,12 @@ const server = http.createServer(async (req, res) => {
       // POST /meals/recipes/deduplicate
       if (req.method === 'POST' && id === 'deduplicate') {
         json(res, 200, await deduplicateRecipes());
+        return;
+      }
+      // POST /meals/recipes/discover
+      if (req.method === 'POST' && id === 'discover') {
+        const body = await parseBody(req);
+        json(res, 200, await discoverRecipes(body.limit || 15));
         return;
       }
       // POST /meals/recipes/scrape

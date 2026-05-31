@@ -110,6 +110,15 @@ export async function deduplicateRecipes() {
   return r.json()
 }
 
+export async function discoverRecipes(limit = 15) {
+  const r = await fetch(`${BASE}/recipes/discover`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ limit })
+  })
+  return r.json()
+}
+
 // ─── Grocery ──────────────────────────────────────────────────────────────────
 
 export async function getGrocery(weekOf) {
