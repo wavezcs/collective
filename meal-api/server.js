@@ -51,6 +51,14 @@ function setPlanJobStatus(weekOf, status, step = '') {
   console.log(`[aria-plan] ${weekOf}: ${step}`);
 }
 
+// Tracks in-progress analyze job (only one at a time)
+let analyzeJob = { status: 'idle', step: '', analyzed: 0, total: 0, updated: Date.now() };
+
+function setAnalyzeJobStatus(status, step = '', analyzed = 0, total = 0) {
+  analyzeJob = { status, step, analyzed, total, updated: Date.now() };
+  console.log(`[aria-analyze] ${step}`);
+}
+
 // Standing staples — default, overridden by Config node in Neo4j
 const DEFAULT_STAPLES = {
   whole_foods: [
@@ -154,6 +162,8 @@ function analyzeNewRecipesBackground(addedList) {
 
 // Batch-analyze all recipes that Aria hasn't classified yet (up to 30 per call)
 async function analyzeAllRecipes() {
+  if (analyzeJob.status === 'running') return; // already in progress
+
   const session = driver.session();
   let toAnalyze;
   try {
@@ -165,19 +175,28 @@ async function analyzeAllRecipes() {
     await session.close();
   }
 
+  if (toAnalyze.length === 0) {
+    setAnalyzeJobStatus('done', 'All recipes already analyzed!', 0, 0);
+    return;
+  }
+
+  setAnalyzeJobStatus('running', `Starting analysis of ${toAnalyze.length} recipes…`, 0, toAnalyze.length);
+
   let analyzed = 0;
   for (const recipe of toAnalyze) {
+    setAnalyzeJobStatus('running', `Analyzing: ${recipe.name} (${analyzed + 1}/${toAnalyze.length})`, analyzed, toAnalyze.length);
     try {
       const result = await analyzeRecipeWithAria(recipe);
       await applyRecipeAnalysis(recipe.id, recipe.tags, result);
       analyzed++;
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 300));
     } catch (err) {
       console.warn(`[aria] batch analysis failed for ${recipe.name}: ${err.message}`);
     }
   }
+  const remaining = toAnalyze.length - analyzed;
   console.log(`[aria] batch analyzed ${analyzed}/${toAnalyze.length} recipes`);
-  return { analyzed, remaining: toAnalyze.length - analyzed };
+  setAnalyzeJobStatus('done', `Done! Analyzed ${analyzed} recipes.${remaining > 0 ? ` ${remaining} failed.` : ''}`, analyzed, toAnalyze.length);
 }
 
 // ─── Preferences (editable markdown file, Aria keeps it updated) ─────────────
@@ -1680,10 +1699,22 @@ const server = http.createServer(async (req, res) => {
         json(res, 201, await createRecipe(body));
         return;
       }
-      // POST /meals/recipes/analyze — batch-analyze unclassified recipes (synchronous, up to 30)
+      // POST /meals/recipes/analyze — start background batch-analyze job
       if (req.method === 'POST' && id === 'analyze') {
-        const result = await analyzeAllRecipes();
-        json(res, 200, result);
+        if (analyzeJob.status === 'running') {
+          json(res, 200, { started: false, message: 'Already running', job: analyzeJob });
+          return;
+        }
+        analyzeAllRecipes().catch(err => {
+          setAnalyzeJobStatus('error', err.message, analyzeJob.analyzed, analyzeJob.total);
+          console.error('[analyzeAllRecipes] error:', err);
+        });
+        json(res, 202, { started: true });
+        return;
+      }
+      // GET /meals/recipes/analyze-status — poll analyze job progress
+      if (req.method === 'GET' && id === 'analyze-status') {
+        json(res, 200, analyzeJob);
         return;
       }
       // POST /meals/recipes/deduplicate

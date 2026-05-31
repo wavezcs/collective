@@ -4,7 +4,7 @@ import {
   listRecipes, createRecipe, updateRecipe, deleteRecipe, rateRecipe, scrapeRecipe,
   listPlans, getPlan, createPlan, updateDay, generatePlan, clearPlan, planWithAria,
   getGrocery, generateGrocery, updateGroceryItem, addGroceryItem, removeGroceryItem,
-  getStaples, updateStaples, deduplicateRecipes, discoverRecipes, analyzeRecipes,
+  getStaples, updateStaples, deduplicateRecipes, discoverRecipes, analyzeRecipes, getAnalyzeStatus,
   listPinterestBoards, addPinterestBoard, deletePinterestBoard, scanPinterestBoard,
   getPreferences, updatePreferences, ariaLearn, getPlanStatus
 } from '../api/meals'
@@ -1133,9 +1133,41 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
     onSuccess: (data) => { qc.invalidateQueries(['recipes']); onRefresh(); setDedupResult(data) }
   })
 
+  const [analyzeStatus, setAnalyzeStatus] = useState(null)
+  const analyzePollRef = useRef(null)
+
+  function stopAnalyzePoll() {
+    if (analyzePollRef.current) { clearInterval(analyzePollRef.current); analyzePollRef.current = null }
+  }
+
+  function startAnalyzePoll() {
+    stopAnalyzePoll()
+    analyzePollRef.current = setInterval(async () => {
+      try {
+        const s = await getAnalyzeStatus()
+        setAnalyzeStatus(s)
+        if (s.status === 'done') {
+          stopAnalyzePoll()
+          qc.invalidateQueries(['recipes'])
+          onRefresh()
+          setTimeout(() => setAnalyzeStatus(null), 4000)
+        } else if (s.status === 'error') {
+          stopAnalyzePoll()
+        }
+      } catch {}
+    }, 1500)
+  }
+
+  useEffect(() => {
+    getAnalyzeStatus().then(s => {
+      if (s.status === 'running') { setAnalyzeStatus(s); startAnalyzePoll() }
+    }).catch(() => {})
+    return stopAnalyzePoll
+  }, [])
+
   const analyze = useMutation({
     mutationFn: analyzeRecipes,
-    onSuccess: () => { qc.invalidateQueries(['recipes']); onRefresh() }
+    onSuccess: () => startAnalyzePoll()
   })
 
   const rate = useMutation({
@@ -1187,13 +1219,28 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
                          hover:text-borg-text hover:border-borg-green/40 transition-colors">
               <Download size={12} /> Pinterest
             </button>
-            <button onClick={() => analyze.mutate()} disabled={analyze.isPending}
-              title="Aria classifies vegetarian, kid-friendly, side dish for all unanalyzed recipes"
-              className="flex items-center gap-1.5 text-xs text-purple-300 px-2.5 py-1.5 rounded border border-purple-400/30
-                         hover:bg-purple-500/10 transition-colors disabled:opacity-50">
-              {analyze.isPending ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-              {analyze.isPending ? 'Analyzing…' : 'Aria analyze'}
-            </button>
+            <div className="relative group">
+              <button onClick={() => analyze.mutate()} disabled={analyzeStatus?.status === 'running' || analyze.isPending}
+                className="flex items-center gap-1.5 text-xs text-purple-300 px-2.5 py-1.5 rounded border border-purple-400/30
+                           hover:bg-purple-500/10 transition-colors disabled:opacity-50">
+                {analyzeStatus?.status === 'running' || analyze.isPending
+                  ? <Loader2 size={12} className="animate-spin" />
+                  : <Sparkles size={12} />}
+                {analyzeStatus?.status === 'running'
+                  ? `Analyzing… ${analyzeStatus.analyzed}/${analyzeStatus.total}`
+                  : analyzeStatus?.status === 'done'
+                    ? analyzeStatus.step
+                    : 'Aria analyze'}
+              </button>
+              <div className={`absolute right-0 top-full mt-1.5 w-64 bg-borg-surface border border-purple-400/30
+                              rounded-lg px-3 py-2 text-xs text-borg-muted shadow-lg z-50 pointer-events-none
+                              transition-opacity duration-150
+                              ${analyzeStatus?.status === 'running' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                {analyzeStatus?.status === 'running'
+                  ? analyzeStatus.step
+                  : 'Aria classifies each recipe: vegetarian, kid-friendly, type, tags. Excludes desserts/drinks.'}
+              </div>
+            </div>
             <button onClick={() => { setDedupResult(null); dedup.mutate() }} disabled={dedup.isPending}
               title="Remove duplicate recipes (same URL)"
               className="flex items-center gap-1.5 text-xs text-borg-muted px-2.5 py-1.5 rounded border border-borg-border

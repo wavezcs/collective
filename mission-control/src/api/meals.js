@@ -120,6 +120,11 @@ export async function analyzeRecipes() {
   return r.json()
 }
 
+export async function getAnalyzeStatus() {
+  const r = await fetch(`${BASE}/recipes/analyze-status`)
+  return r.json()
+}
+
 export async function deduplicateRecipes() {
   const r = await fetch(`${BASE}/recipes/deduplicate`, { method: 'POST' })
   return r.json()
