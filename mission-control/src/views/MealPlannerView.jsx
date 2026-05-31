@@ -3,12 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   listRecipes, createRecipe, updateRecipe, deleteRecipe, rateRecipe, scrapeRecipe,
   listPlans, getPlan, createPlan, updateDay, generatePlan, approvePlan,
-  getGrocery, toggleGroceryItem
+  getGrocery, toggleGroceryItem,
+  listPinterestBoards, addPinterestBoard, deletePinterestBoard, scanPinterestBoard
 } from '../api/meals'
 import {
   ChefHat, Zap, Clock, Star, Plus, Trash2, ThumbsUp, ThumbsDown,
   Heart, ShoppingCart, Calendar, ChevronLeft, ChevronRight,
-  Check, Copy, User, UserX, RefreshCw, Loader2, Pencil
+  Check, Copy, User, UserX, RefreshCw, Loader2, Pencil, Download
 } from 'lucide-react'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -305,6 +306,161 @@ function AddRecipeModal({ onClose, onCreate }) {
           </button>
         </div>
       </form>
+    </div>
+  )
+}
+
+// ─── Pinterest Import Modal ───────────────────────────────────────────────────
+
+function PinterestModal({ onClose, onImported }) {
+  const qc = useQueryClient()
+  const [url, setUrl] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [scanning, setScanning] = useState(null) // board id being scanned
+  const [lastResult, setLastResult] = useState(null) // { added, skipped, boardId }
+
+  const { data: boards = [], refetch: refetchBoards } = useQuery({
+    queryKey: ['pinterest-boards'],
+    queryFn: listPinterestBoards,
+  })
+
+  const addBoard = useMutation({
+    mutationFn: addPinterestBoard,
+    onSuccess: () => { refetchBoards(); setUrl('') },
+  })
+
+  const removeBoard = useMutation({
+    mutationFn: deletePinterestBoard,
+    onSuccess: () => refetchBoards(),
+  })
+
+  async function handleAdd(e) {
+    e.preventDefault()
+    const trimmed = url.trim()
+    if (!trimmed || !trimmed.includes('pinterest.com')) return
+    setAdding(true)
+    await addBoard.mutateAsync(trimmed)
+    setAdding(false)
+  }
+
+  async function handleScan(boardId) {
+    setScanning(boardId)
+    setLastResult(null)
+    try {
+      const result = await scanPinterestBoard(boardId)
+      setLastResult({ ...result, boardId })
+      refetchBoards()
+      if (result.added?.length) {
+        qc.invalidateQueries(['recipes'])
+        onImported?.()
+      }
+    } finally {
+      setScanning(null)
+    }
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return 'Never'
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div
+        onClick={e => e.stopPropagation()}
+        className="bg-borg-surface border border-borg-border rounded-lg w-full max-w-lg flex flex-col"
+        style={{ maxHeight: '85vh' }}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-borg-border">
+          <div>
+            <div className="text-borg-green font-semibold text-sm">Pinterest Import</div>
+            <div className="text-borg-dim text-xs">Saved boards are scanned automatically every 24 hours</div>
+          </div>
+          <button onClick={onClose} className="text-borg-muted hover:text-borg-text text-lg leading-none">×</button>
+        </div>
+
+        {/* Add board form */}
+        <form onSubmit={handleAdd} className="flex gap-2 p-3 border-b border-borg-border">
+          <input
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            placeholder="https://www.pinterest.com/you/board-name/"
+            className="flex-1 bg-borg-panel border border-borg-border rounded px-3 py-2 text-sm text-borg-text
+                       placeholder-borg-dim focus:outline-none focus:border-borg-green/50"
+          />
+          <button
+            type="submit"
+            disabled={adding || !url.trim().includes('pinterest.com')}
+            className="flex items-center gap-1.5 text-xs px-3 py-2 rounded border border-borg-green/50
+                       text-borg-green hover:bg-borg-panel disabled:opacity-40 transition-colors shrink-0"
+          >
+            {adding ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+            Add Board
+          </button>
+        </form>
+
+        {/* Board list */}
+        <div className="flex-1 overflow-y-auto">
+          {boards.length === 0 && (
+            <div className="text-center text-borg-dim text-sm py-10">No boards saved yet. Paste a Pinterest board URL above.</div>
+          )}
+          {boards.map(b => {
+            const isScanning = scanning === b.id
+            const result = lastResult?.boardId === b.id ? lastResult : null
+            return (
+              <div key={b.id} className="p-3 border-b border-borg-border last:border-b-0">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-borg-text text-sm font-medium truncate">{b.name}</div>
+                    <a href={b.url} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-borg-dim hover:text-borg-green truncate block">{b.url}</a>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-borg-dim">
+                      <span>Last scanned: {fmtDate(b.last_scanned)}</span>
+                      {b.pin_count > 0 && <span>{b.pin_count} pins found</span>}
+                      {b.recipes_added > 0 && <span className="text-borg-green">{b.recipes_added} recipes added total</span>}
+                    </div>
+                    {result && (
+                      <div className={`mt-1.5 text-xs px-2 py-1 rounded border ${
+                        result.added?.length ? 'border-borg-green/30 text-borg-green bg-borg-panel' : 'border-borg-border text-borg-dim'
+                      }`}>
+                        {result.error
+                          ? `Error: ${result.error}`
+                          : `Scan complete — ${result.added?.length || 0} new recipes added, ${result.skipped || 0} skipped`
+                        }
+                        {result.added?.length > 0 && (
+                          <div className="mt-1 space-y-0.5">
+                            {result.added.slice(0, 5).map((r, i) => (
+                              <div key={i} className="text-borg-muted truncate">+ {r.name}</div>
+                            ))}
+                            {result.added.length > 5 && <div className="text-borg-dim">…and {result.added.length - 5} more</div>}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => handleScan(b.id)}
+                      disabled={!!scanning}
+                      className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-borg-border
+                                 text-borg-muted hover:text-borg-text hover:border-borg-green/40 disabled:opacity-40 transition-colors"
+                    >
+                      {isScanning ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+                      {isScanning ? 'Scanning…' : 'Scan now'}
+                    </button>
+                    <button
+                      onClick={() => removeBoard.mutate(b.id)}
+                      className="p-1 rounded text-borg-dim hover:text-red-400 hover:bg-borg-border transition-colors"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }
@@ -609,6 +765,7 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
   const [search, setSearch] = useState('')
   const [chip, setChip] = useState('')
   const [showAdd, setShowAdd] = useState(false)
+  const [showPinterest, setShowPinterest] = useState(false)
   const [editRecipe, setEditRecipe] = useState(null)
 
   const create = useMutation({
@@ -663,11 +820,18 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
               </button>
             ))}
           </div>
-          <button onClick={() => setShowAdd(true)}
-            className="flex items-center gap-1.5 text-xs text-borg-green px-2.5 py-1.5 rounded border border-borg-green/40
-                       hover:bg-borg-panel transition-colors">
-            <Plus size={12} /> Add Recipe
-          </button>
+          <div className="flex gap-1.5">
+            <button onClick={() => setShowPinterest(true)}
+              className="flex items-center gap-1.5 text-xs text-borg-muted px-2.5 py-1.5 rounded border border-borg-border
+                         hover:text-borg-text hover:border-borg-green/40 transition-colors">
+              <Download size={12} /> Pinterest
+            </button>
+            <button onClick={() => setShowAdd(true)}
+              className="flex items-center gap-1.5 text-xs text-borg-green px-2.5 py-1.5 rounded border border-borg-green/40
+                         hover:bg-borg-panel transition-colors">
+              <Plus size={12} /> Add Recipe
+            </button>
+          </div>
         </div>
       </div>
 
@@ -760,6 +924,12 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
         </div>
       </div>
 
+      {showPinterest && (
+        <PinterestModal
+          onClose={() => setShowPinterest(false)}
+          onImported={() => { qc.invalidateQueries(['recipes']); onRefresh() }}
+        />
+      )}
       {showAdd && (
         <AddRecipeModal onClose={() => setShowAdd(false)} onCreate={data => create.mutateAsync(data)} />
       )}

@@ -730,6 +730,197 @@ async function toggleGroceryItem(weekOf, store, index, checked) {
   }
 }
 
+// ─── Pinterest ───────────────────────────────────────────────────────────────
+
+// Extract recipe URLs from a Pinterest board page
+async function scrapePinterestBoard(boardUrl) {
+  const res = await fetch(boardUrl, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Cache-Control': 'no-cache',
+    },
+    signal: AbortSignal.timeout(20_000),
+    redirect: 'follow',
+  });
+  if (!res.ok) throw new Error(`Pinterest fetch failed: ${res.status}`);
+  const html = await res.text();
+
+  const urls = new Set();
+
+  // Strategy 1: __PWS_DATA__ Redux state (main Pinterest data blob)
+  const pwsMatch = html.match(/<script id="__PWS_DATA__">\s*window\.__PWS_DATA__\s*=\s*(\{[\s\S]*?\});\s*<\/script>/);
+  if (pwsMatch) {
+    try {
+      const data = JSON.parse(pwsMatch[1]);
+      const pins = data?.props?.initialReduxState?.pins || {};
+      for (const pin of Object.values(pins)) {
+        const link = pin?.link || pin?.rich_metadata?.url;
+        if (link && !/pinterest\.com|pin\.it/i.test(link)) urls.add(link);
+      }
+    } catch {}
+  }
+
+  // Strategy 2: JSON "link" values for external URLs anywhere in page
+  if (urls.size === 0) {
+    const linkRe = /"link"\s*:\s*"(https?:\/\/(?!(?:[^"\/]*\.)?pinterest\.com|pin\.it)[^"]+)"/g;
+    let m;
+    while ((m = linkRe.exec(html)) !== null) urls.add(m[1]);
+  }
+
+  // Strategy 3: og:see_also or <a href> pointing off-domain (last resort)
+  if (urls.size === 0) {
+    const hrefRe = /href="(https?:\/\/(?!(?:[^"\/]*\.)?pinterest\.com|pin\.it)[^"]+)"/g;
+    let m;
+    while ((m = hrefRe.exec(html)) !== null) {
+      const u = m[1];
+      // Only keep URLs that look like recipes (have a path, not just a domain)
+      try { if (new URL(u).pathname.length > 3) urls.add(u); } catch {}
+    }
+  }
+
+  // Board name from <title>
+  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+  const name = titleMatch ? titleMatch[1].replace(/\s*[\|–\-].*$/, '').trim() : boardUrl;
+
+  return { urls: [...urls].slice(0, 60), name };
+}
+
+// Check if a recipe URL already exists
+async function getRecipeByUrl(url) {
+  const session = driver.session();
+  try {
+    const r = await session.run('MATCH (r:Recipe {url: $url}) RETURN r.id AS id', { url });
+    return r.records.length ? r.records[0].get('id') : null;
+  } finally {
+    await session.close();
+  }
+}
+
+// Pinterest board DB ops
+async function listPinterestBoards() {
+  const session = driver.session();
+  try {
+    const r = await session.run('MATCH (b:PinterestBoard) RETURN b ORDER BY b.created_at DESC');
+    return r.records.map(rec => serializeProps(rec.get('b').properties));
+  } finally {
+    await session.close();
+  }
+}
+
+async function addPinterestBoard(url, name) {
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const session = driver.session();
+  try {
+    // Check for duplicate
+    const existing = await session.run('MATCH (b:PinterestBoard {url: $url}) RETURN b', { url });
+    if (existing.records.length) return serializeProps(existing.records[0].get('b').properties);
+    await session.run(
+      `CREATE (b:PinterestBoard {
+        id: $id, url: $url, name: $name,
+        last_scanned: null, recipes_added: $zero, pin_count: $zero,
+        created_at: $now
+      })`,
+      { id, url, name: name || url, zero: neo4j.int(0), now }
+    );
+    return { id, url, name: name || url, last_scanned: null, recipes_added: 0, pin_count: 0, created_at: now };
+  } finally {
+    await session.close();
+  }
+}
+
+async function deletePinterestBoard(id) {
+  const session = driver.session();
+  try {
+    await session.run('MATCH (b:PinterestBoard {id: $id}) DELETE b', { id });
+  } finally {
+    await session.close();
+  }
+}
+
+async function scanPinterestBoard(boardId) {
+  const session = driver.session();
+  let board;
+  try {
+    const r = await session.run('MATCH (b:PinterestBoard {id: $id}) RETURN b', { id: boardId });
+    if (!r.records.length) return null;
+    board = serializeProps(r.records[0].get('b').properties);
+  } finally {
+    await session.close();
+  }
+
+  console.log(`[pinterest] scanning board: ${board.url}`);
+  let urls, boardName;
+  try {
+    ({ urls, name: boardName } = await scrapePinterestBoard(board.url));
+  } catch (err) {
+    console.error(`[pinterest] scrape failed: ${err.message}`);
+    return { error: err.message, added: [], skipped: 0 };
+  }
+
+  const added = [];
+  let skipped = 0;
+
+  for (const url of urls) {
+    // Skip non-recipe-looking URLs
+    if (/\.(jpg|jpeg|png|gif|pdf|mp4|zip)/i.test(url)) { skipped++; continue; }
+
+    const existing = await getRecipeByUrl(url);
+    if (existing) { skipped++; continue; }
+
+    // Small delay to avoid hammering recipe sites
+    await new Promise(r => setTimeout(r, 400));
+
+    try {
+      const scraped = await scrapeRecipe(url);
+      if (!scraped.name) { skipped++; continue; }
+      const recipe = await createRecipe({ ...scraped, in_rotation: true });
+      added.push({ id: recipe.id, name: scraped.name, url });
+      console.log(`[pinterest] added: ${scraped.name}`);
+    } catch (err) {
+      console.warn(`[pinterest] skipped ${url}: ${err.message}`);
+      skipped++;
+    }
+  }
+
+  // Update board stats
+  const s2 = driver.session();
+  try {
+    await s2.run(
+      `MATCH (b:PinterestBoard {id: $id})
+       SET b.last_scanned = $now,
+           b.pin_count = $pinCount,
+           b.name = $name,
+           b.recipes_added = b.recipes_added + $newCount`,
+      {
+        id: boardId,
+        now: new Date().toISOString(),
+        pinCount: neo4j.int(urls.length),
+        name: boardName || board.name,
+        newCount: neo4j.int(added.length),
+      }
+    );
+  } finally {
+    await s2.close();
+  }
+
+  console.log(`[pinterest] board scan done — added ${added.length}, skipped ${skipped}`);
+  return { added, skipped, pin_count: urls.length };
+}
+
+async function scanAllBoards() {
+  const boards = await listPinterestBoards();
+  for (const board of boards) {
+    try { await scanPinterestBoard(board.id); } catch {}
+  }
+}
+
+// Auto-scan: 3 min after startup, then every 24 h
+setTimeout(scanAllBoards, 3 * 60 * 1000);
+setInterval(scanAllBoards, 24 * 60 * 60 * 1000);
+
 // ─── Server ──────────────────────────────────────────────────────────────────
 
 const server = http.createServer(async (req, res) => {
@@ -851,6 +1042,40 @@ const server = http.createServer(async (req, res) => {
         const grocery = await toggleGroceryItem(id, body.store, body.index, body.checked);
         if (!grocery) { json(res, 404, { error: 'Not found' }); return; }
         json(res, 200, grocery);
+        return;
+      }
+    }
+
+    // ── Pinterest ─────────────────────────────────────────────────────────────
+    if (section === 'pinterest') {
+      // GET /meals/pinterest — list boards
+      if (req.method === 'GET' && !id) {
+        json(res, 200, { boards: await listPinterestBoards() });
+        return;
+      }
+      // POST /meals/pinterest — add board {url}
+      if (req.method === 'POST' && !id) {
+        const body = await parseBody(req);
+        if (!body.url) { json(res, 400, { error: 'url required' }); return; }
+        // Derive name from board URL while fetching; we'll update after first scan
+        const name = body.url.replace(/\/$/, '').split('/').slice(-2).join(' / ');
+        const board = await addPinterestBoard(body.url, name);
+        // Kick off initial scan in background (don't await)
+        scanPinterestBoard(board.id).catch(() => {});
+        json(res, 201, board);
+        return;
+      }
+      // DELETE /meals/pinterest/:id
+      if (req.method === 'DELETE' && id && !sub) {
+        await deletePinterestBoard(id);
+        json(res, 200, { ok: true });
+        return;
+      }
+      // POST /meals/pinterest/:id/scan — trigger scan now
+      if (req.method === 'POST' && id && sub === 'scan') {
+        const result = await scanPinterestBoard(id);
+        if (!result) { json(res, 404, { error: 'Board not found' }); return; }
+        json(res, 200, result);
         return;
       }
     }

@@ -108,6 +108,34 @@ export async function getGrocery(weekOf) {
   return r.json()
 }
 
+// ─── Pinterest ────────────────────────────────────────────────────────────────
+
+export async function listPinterestBoards() {
+  const r = await fetch(`${BASE}/pinterest`)
+  const d = await r.json()
+  return d.boards || []
+}
+
+export async function addPinterestBoard(url) {
+  const r = await fetch(`${BASE}/pinterest`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url })
+  })
+  return r.json()
+}
+
+export async function deletePinterestBoard(id) {
+  await fetch(`${BASE}/pinterest/${id}`, { method: 'DELETE' })
+}
+
+export async function scanPinterestBoard(id) {
+  const r = await fetch(`${BASE}/pinterest/${id}/scan`, { method: 'POST' })
+  return r.json()
+}
+
+// ─── Grocery ──────────────────────────────────────────────────────────────────
+
 export async function toggleGroceryItem(weekOf, store, index, checked) {
   await fetch(`${BASE}/grocery/${weekOf}/item`, {
     method: 'PATCH',
