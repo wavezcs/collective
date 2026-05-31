@@ -110,8 +110,14 @@ export async function planWithAria(weekOf) {
   return r.json()
 }
 
+export async function getPlanStatus(weekOf) {
+  const r = await fetch(`${BASE}/plans/${weekOf}/plan-status`)
+  return r.json()
+}
+
 export async function analyzeRecipes() {
-  await fetch(`${BASE}/recipes/analyze`, { method: 'POST' })
+  const r = await fetch(`${BASE}/recipes/analyze`, { method: 'POST' })
+  return r.json()
 }
 
 export async function deduplicateRecipes() {

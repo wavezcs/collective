@@ -42,6 +42,15 @@ const PREFS_PATH = path.join(__dirname, 'preferences.md');
 
 const driver = neo4j.driver(NEO4J_URI, neo4j.auth.basic(NEO4J_USER, NEO4J_PASSWORD));
 
+// ─── Background job tracker ───────────────────────────────────────────────────
+// Tracks in-progress planning jobs so the client can poll for status.
+const planJobs = new Map(); // weekOf → { status: 'running'|'done'|'error', step, updated }
+
+function setPlanJobStatus(weekOf, status, step = '') {
+  planJobs.set(weekOf, { status, step, updated: Date.now() });
+  console.log(`[aria-plan] ${weekOf}: ${step}`);
+}
+
 // Standing staples — default, overridden by Config node in Neo4j
 const DEFAULT_STAPLES = {
   whole_foods: [
@@ -295,20 +304,24 @@ Only flag CLEAR misclassifications. Keep the markdown concise and practical.` }
 
 // Aria plans the full week — reasons about schedule, taste, variety
 async function planWithAria(weekOf) {
+  setPlanJobStatus(weekOf, 'running', 'Loading plan…');
   let plan = await getPlan(weekOf);
   if (!plan) plan = await createPlan(weekOf);
 
+  setPlanJobStatus(weekOf, 'running', 'Fetching calendar and recipes…');
   const [events, recipes, prefs] = await Promise.all([
     getCalendarEvents(14),
     listRecipes({ in_rotation: 'true' }),
     readPreferences(),
   ]);
 
+  setPlanJobStatus(weekOf, 'running', 'Building taste profile from ratings…');
   // Taste profile from ratings
   const loved    = recipes.filter(r => r.rating === 2).map(r => r.name).slice(0, 10);
   const liked    = recipes.filter(r => r.rating === 1).map(r => r.name).slice(0, 10);
   const disliked = recipes.filter(r => r.rating === -1).map(r => r.name).slice(0, 5);
 
+  setPlanJobStatus(weekOf, 'running', 'Checking recipe history…');
   // Find recently used recipe IDs (last 3 plans) to avoid repeats
   const recentIds = new Set();
   try {
@@ -366,6 +379,7 @@ async function planWithAria(weekOf) {
     `${r.id}|${r.name}|${r.total_minutes || 0}min|veg:${!!r.vegetarian}|kids:${!!r.kid_friendly}|rated:${r.rating ?? 0}`
   ).join('\n');
 
+  setPlanJobStatus(weekOf, 'running', `Asking Aria to plan ${mains.length} recipes across ${days.length} days… (~30–60s)`);
   const result = await ollamaChat([
     { role: 'system', content: 'You are Aria, a thoughtful family meal planner. Return only valid JSON, no extra text.' },
     { role: 'user', content: `Plan dinners for the week of ${weekOf}.
@@ -417,12 +431,14 @@ Return JSON:
     };
   });
 
+  setPlanJobStatus(weekOf, 'running', 'Saving Aria\'s picks…');
   const session = driver.session();
   try {
     await session.run(
       'MATCH (p:MealPlan {week_of: $weekOf}) SET p.days = $days, p.aria_notes = $notes',
       { weekOf, days: JSON.stringify(updatedDays), notes: result.week_summary || null }
     );
+    setPlanJobStatus(weekOf, 'done', 'Plan ready!');
     return { ...plan, days: updatedDays, aria_notes: result.week_summary };
   } finally {
     await session.close();
@@ -1656,10 +1672,10 @@ const server = http.createServer(async (req, res) => {
         json(res, 201, await createRecipe(body));
         return;
       }
-      // POST /meals/recipes/analyze — batch-analyze unclassified recipes in background
+      // POST /meals/recipes/analyze — batch-analyze unclassified recipes (synchronous, up to 30)
       if (req.method === 'POST' && id === 'analyze') {
-        analyzeAllRecipes().catch(() => {});
-        json(res, 202, { ok: true, message: 'Analysis started' });
+        const result = await analyzeAllRecipes();
+        json(res, 200, result);
         return;
       }
       // POST /meals/recipes/deduplicate
@@ -1742,9 +1758,20 @@ const server = http.createServer(async (req, res) => {
         json(res, 200, await generatePlan(id));
         return;
       }
-      // POST /meals/plans/:week/plan-with-aria
+      // POST /meals/plans/:week/plan-with-aria — starts background job, returns immediately
       if (req.method === 'POST' && id && sub === 'plan-with-aria') {
-        json(res, 200, await planWithAria(id));
+        setPlanJobStatus(id, 'running', 'Starting…');
+        planWithAria(id).catch(err => {
+          setPlanJobStatus(id, 'error', err.message);
+          console.error('[planWithAria] error:', err);
+        });
+        json(res, 202, { started: true });
+        return;
+      }
+      // GET /meals/plans/:week/plan-status — poll for job progress
+      if (req.method === 'GET' && id && sub === 'plan-status') {
+        const job = planJobs.get(id);
+        json(res, 200, job || { status: 'idle', step: '' });
         return;
       }
       // POST /meals/plans/:week/clear

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react'
+import React, { useState, useMemo, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   listRecipes, createRecipe, updateRecipe, deleteRecipe, rateRecipe, scrapeRecipe,
@@ -6,7 +6,7 @@ import {
   getGrocery, generateGrocery, updateGroceryItem, addGroceryItem, removeGroceryItem,
   getStaples, updateStaples, deduplicateRecipes, discoverRecipes, analyzeRecipes,
   listPinterestBoards, addPinterestBoard, deletePinterestBoard, scanPinterestBoard,
-  getPreferences, updatePreferences, ariaLearn
+  getPreferences, updatePreferences, ariaLearn, getPlanStatus
 } from '../api/meals'
 import {
   ChefHat, Zap, Clock, Star, Plus, Trash2, ThumbsUp, ThumbsDown,
@@ -719,9 +719,42 @@ function WeekTab({ recipes }) {
     onSuccess: () => qc.invalidateQueries(['plan', weekOf])
   })
 
+  const [ariaStatus, setAriaStatus] = useState(null) // { status, step }
+  const pollRef = useRef(null)
+
+  function stopPolling() {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+  }
+
+  function startPolling() {
+    stopPolling()
+    pollRef.current = setInterval(async () => {
+      try {
+        const s = await getPlanStatus(weekOf)
+        setAriaStatus(s)
+        if (s.status === 'done') {
+          stopPolling()
+          qc.invalidateQueries(['plan', weekOf])
+          setTimeout(() => setAriaStatus(null), 3000)
+        } else if (s.status === 'error') {
+          stopPolling()
+        }
+      } catch {}
+    }, 1500)
+  }
+
+  // Check status on mount / weekOf change — resume if a job is already running
+  useEffect(() => {
+    getPlanStatus(weekOf).then(s => {
+      if (s.status === 'running') { setAriaStatus(s); startPolling() }
+      else setAriaStatus(null)
+    }).catch(() => {})
+    return stopPolling
+  }, [weekOf])
+
   const ariaPlanning = useMutation({
     mutationFn: () => planWithAria(weekOf),
-    onSuccess: () => qc.invalidateQueries(['plan', weekOf])
+    onSuccess: () => startPolling()
   })
 
   const clearWeek = useMutation({
@@ -897,14 +930,38 @@ function WeekTab({ recipes }) {
           </button>
         )}
         {plan && (
-          <button onClick={() => ariaPlanning.mutate()} disabled={ariaPlanning.isPending || generate.isPending}
-            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-purple-400/40
-                       text-purple-300 hover:text-purple-200 hover:bg-purple-500/10 transition-colors disabled:opacity-50">
-            {ariaPlanning.isPending
-              ? <><Loader2 size={12} className="animate-spin" /> Aria is planning…</>
-              : <><Sparkles size={12} /> Plan with Aria</>
-            }
-          </button>
+          <div className="relative group">
+            <button
+              onClick={() => ariaPlanning.mutate()}
+              disabled={ariaStatus?.status === 'running' || ariaPlanning.isPending}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-purple-400/40
+                         text-purple-300 hover:text-purple-200 hover:bg-purple-500/10 transition-colors disabled:opacity-60">
+              {ariaStatus?.status === 'running' || ariaPlanning.isPending
+                ? <><Loader2 size={12} className="animate-spin" /> Aria is planning…</>
+                : ariaStatus?.status === 'done'
+                  ? <><Sparkles size={12} className="text-purple-300" /> Plan ready!</>
+                  : <><Sparkles size={12} /> Plan with Aria</>
+              }
+            </button>
+            {/* Live status tooltip — always shown when running, on hover otherwise */}
+            <div className={`absolute left-0 top-full mt-1.5 z-30 min-w-[260px] bg-borg-surface border border-purple-400/30
+                            rounded-lg px-3 py-2 shadow-xl text-xs text-purple-200/80 pointer-events-none
+                            transition-opacity duration-150
+                            ${ariaStatus?.status === 'running' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+              <div className="flex items-center gap-1.5 mb-1 text-purple-300 font-medium">
+                <Sparkles size={10} />
+                {ariaStatus?.status === 'running' ? 'Aria is thinking…' : 'Plan with Aria'}
+              </div>
+              <div className="text-purple-200/60 leading-relaxed">
+                {ariaStatus?.status === 'running'
+                  ? ariaStatus.step
+                  : 'Aria reads your calendar, taste profile, and preferences to plan a varied week of meals tailored to your family.'}
+              </div>
+              {ariaStatus?.status === 'error' && (
+                <div className="text-red-400 mt-1">Error: {ariaStatus.step}</div>
+              )}
+            </div>
+          </div>
         )}
         {plan && (
           <button onClick={() => generate.mutate()} disabled={generate.isPending || ariaPlanning.isPending}
@@ -1078,7 +1135,7 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
 
   const analyze = useMutation({
     mutationFn: analyzeRecipes,
-    onSuccess: () => setTimeout(() => { qc.invalidateQueries(['recipes']); onRefresh() }, 5000)
+    onSuccess: () => { qc.invalidateQueries(['recipes']); onRefresh() }
   })
 
   const rate = useMutation({
