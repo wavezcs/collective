@@ -431,6 +431,11 @@ async function getRecipe(id) {
 }
 
 async function createRecipe(data) {
+  // Deduplicate by URL atomically — prevents race conditions on concurrent scans
+  if (data.url) {
+    const existingId = await getRecipeByUrl(data.url);
+    if (existingId) return getRecipe(existingId);
+  }
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   const session = driver.session();

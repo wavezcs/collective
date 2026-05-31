@@ -52,14 +52,14 @@ const RATING_META = {
 
 function TabBar({ tabs, active, onChange }) {
   return (
-    <div className="flex gap-1 border-b border-borg-border px-4">
+    <div className="flex border-b border-borg-border px-5">
       {tabs.map(t => (
         <button
           key={t.id}
           onClick={() => onChange(t.id)}
-          className={`px-3 py-2.5 text-xs font-medium border-b-2 transition-colors -mb-px ${
+          className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors -mb-px ${
             active === t.id
-              ? 'border-borg-green text-borg-green'
+              ? 'border-borg-green text-borg-text'
               : 'border-transparent text-borg-muted hover:text-borg-text'
           }`}
         >
@@ -74,8 +74,8 @@ function ContextBadge({ context }) {
   const m = CONTEXT_META[context] || CONTEXT_META.normal
   const Icon = m.icon
   return (
-    <span className={`inline-flex items-center gap-1 text-xs border rounded px-1.5 py-0.5 ${m.color} ${m.bg}`}>
-      <Icon size={10} />
+    <span className={`inline-flex items-center gap-1 text-xs rounded-full px-2 py-0.5 bg-borg-panel ${m.color}`}>
+      <Icon size={9} />
       {m.label}
     </span>
   )
@@ -99,16 +99,16 @@ function RecipePickerModal({ recipes, day, slot, onPick, onClose }) {
   const currentId = slot === 'kids' ? day.kids_recipe_id : day.adult_recipe_id
   const slotLabel = slot === 'kids' ? 'Kids' : 'Adults'
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
         onClick={e => e.stopPropagation()}
-        className="bg-borg-surface border border-borg-border rounded-lg w-full max-w-lg flex flex-col"
+        className="bg-borg-surface border border-borg-border rounded-xl w-full max-w-lg flex flex-col shadow-2xl"
         style={{ maxHeight: '80vh' }}
       >
         <div className="flex items-center justify-between p-4 border-b border-borg-border">
           <div>
-            <div className="text-borg-green font-semibold text-sm">Pick Meal — {slotLabel}</div>
-            <div className="text-borg-dim text-xs">{day.day_name} · {fmtDate(day.date)}</div>
+            <div className="text-borg-text font-semibold">Pick Meal — {slotLabel}</div>
+            <div className="text-borg-muted text-sm">{day.day_name} · {fmtDate(day.date)}</div>
           </div>
           <button onClick={onClose} className="text-borg-muted hover:text-borg-text text-lg leading-none">×</button>
         </div>
@@ -118,8 +118,8 @@ function RecipePickerModal({ recipes, day, slot, onPick, onClose }) {
             onChange={e => setSearch(e.target.value)}
             placeholder="Search recipes…"
             autoFocus
-            className="w-full bg-borg-panel border border-borg-border rounded px-3 py-2 text-sm text-borg-text
-                       placeholder-borg-dim focus:outline-none focus:border-borg-green/50"
+            className="w-full bg-borg-panel border border-borg-border/80 rounded-lg px-3 py-2 text-sm text-borg-text
+                       placeholder-borg-dim focus:outline-none focus:border-borg-green/50 focus:bg-borg-panel"
           />
         </div>
         <div className="overflow-y-auto flex-1 p-2 space-y-1">
@@ -293,20 +293,20 @@ function AddRecipeModal({ onClose, onCreate, allTags = [] }) {
     onClose()
   }
 
-  const inputCls = `w-full bg-borg-panel border border-borg-border rounded px-3 py-2 text-sm text-borg-text
-    placeholder-borg-dim focus:outline-none focus:border-borg-green/50`
-  const labelCls = 'text-xs text-borg-muted block mb-1'
+  const inputCls = `w-full bg-borg-panel border border-borg-border/80 rounded-lg px-3 py-2 text-sm text-borg-text
+    placeholder-borg-dim focus:outline-none focus:border-borg-green/50 transition-colors`
+  const labelCls = 'text-xs font-medium text-borg-muted block mb-1.5'
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={onClose}>
       <form
         onClick={e => e.stopPropagation()}
         onSubmit={submit}
-        className="bg-borg-surface border border-borg-border rounded-lg w-full max-w-lg flex flex-col"
+        className="bg-borg-surface border border-borg-border rounded-xl w-full max-w-lg flex flex-col shadow-2xl"
         style={{ maxHeight: '90vh' }}
       >
         <div className="flex items-center justify-between p-4 border-b border-borg-border">
-          <div className="text-borg-green font-semibold text-sm">Add Recipe</div>
+          <div className="text-borg-text font-semibold">Add Recipe</div>
           <button type="button" onClick={onClose} className="text-borg-muted hover:text-borg-text text-lg leading-none">×</button>
         </div>
 
@@ -377,12 +377,12 @@ function AddRecipeModal({ onClose, onCreate, allTags = [] }) {
 
         <div className="flex gap-2 p-4 border-t border-borg-border">
           <button type="button" onClick={onClose}
-            className="flex-1 py-2 rounded border border-borg-border text-borg-muted hover:text-borg-text hover:border-borg-green/40 text-sm transition-colors">
+            className="flex-1 py-2 rounded-lg text-borg-muted hover:text-borg-text hover:bg-borg-panel text-sm transition-colors">
             Cancel
           </button>
           <button type="submit" disabled={busy || !form.name.trim()}
-            className="flex-1 py-2 rounded bg-borg-panel border border-borg-green/50 text-borg-green
-                       hover:bg-borg-border disabled:opacity-40 text-sm transition-colors">
+            className="flex-1 py-2 rounded-lg bg-borg-green/10 border border-borg-green/30 text-borg-green
+                       hover:bg-borg-green/20 disabled:opacity-40 text-sm font-medium transition-colors">
             {busy ? 'Adding…' : 'Add Recipe'}
           </button>
         </div>
@@ -450,16 +450,16 @@ function PinterestModal({ onClose, onImported }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
         onClick={e => e.stopPropagation()}
-        className="bg-borg-surface border border-borg-border rounded-lg w-full max-w-lg flex flex-col"
+        className="bg-borg-surface border border-borg-border rounded-xl w-full max-w-lg flex flex-col shadow-2xl"
         style={{ maxHeight: '85vh' }}
       >
         <div className="flex items-center justify-between p-4 border-b border-borg-border">
           <div>
-            <div className="text-borg-green font-semibold text-sm">Pinterest Import</div>
-            <div className="text-borg-dim text-xs">Saved boards are scanned automatically every 24 hours</div>
+            <div className="text-borg-text font-semibold">Pinterest Import</div>
+            <div className="text-borg-muted text-sm">Boards are scanned automatically every 24 hours</div>
           </div>
           <button onClick={onClose} className="text-borg-muted hover:text-borg-text text-lg leading-none">×</button>
         </div>
@@ -470,8 +470,8 @@ function PinterestModal({ onClose, onImported }) {
             value={url}
             onChange={e => setUrl(e.target.value)}
             placeholder="https://www.pinterest.com/you/board-name/"
-            className="flex-1 bg-borg-panel border border-borg-border rounded px-3 py-2 text-sm text-borg-text
-                       placeholder-borg-dim focus:outline-none focus:border-borg-green/50"
+            className="flex-1 bg-borg-panel border border-borg-border/80 rounded-lg px-3 py-2 text-sm text-borg-text
+                       placeholder-borg-dim focus:outline-none focus:border-borg-green/50 focus:bg-borg-panel"
           />
           <button
             type="submit"
@@ -581,20 +581,20 @@ function EditRecipeModal({ recipe, onClose, onSave, allTags = [] }) {
     onClose()
   }
 
-  const inputCls = `w-full bg-borg-panel border border-borg-border rounded px-3 py-2 text-sm text-borg-text
-    placeholder-borg-dim focus:outline-none focus:border-borg-green/50`
-  const labelCls = 'text-xs text-borg-muted block mb-1'
+  const inputCls = `w-full bg-borg-panel border border-borg-border/80 rounded-lg px-3 py-2 text-sm text-borg-text
+    placeholder-borg-dim focus:outline-none focus:border-borg-green/50 transition-colors`
+  const labelCls = 'text-xs font-medium text-borg-muted block mb-1.5'
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={onClose}>
       <form
         onClick={e => e.stopPropagation()}
         onSubmit={submit}
-        className="bg-borg-surface border border-borg-border rounded-lg w-full max-w-lg flex flex-col"
+        className="bg-borg-surface border border-borg-border rounded-xl w-full max-w-lg flex flex-col shadow-2xl"
         style={{ maxHeight: '90vh' }}
       >
         <div className="flex items-center justify-between p-4 border-b border-borg-border">
-          <div className="text-borg-green font-semibold text-sm">Edit Recipe</div>
+          <div className="text-borg-text font-semibold">Edit Recipe</div>
           <button type="button" onClick={onClose} className="text-borg-muted hover:text-borg-text text-lg leading-none">×</button>
         </div>
         <div className="overflow-y-auto flex-1 p-4 space-y-3">
@@ -645,12 +645,12 @@ function EditRecipeModal({ recipe, onClose, onSave, allTags = [] }) {
         </div>
         <div className="flex gap-2 p-4 border-t border-borg-border">
           <button type="button" onClick={onClose}
-            className="flex-1 py-2 rounded border border-borg-border text-borg-muted hover:text-borg-text hover:border-borg-green/40 text-sm transition-colors">
+            className="flex-1 py-2 rounded-lg text-borg-muted hover:text-borg-text hover:bg-borg-panel text-sm transition-colors">
             Cancel
           </button>
           <button type="submit" disabled={busy || !form.name.trim()}
-            className="flex-1 py-2 rounded bg-borg-panel border border-borg-green/50 text-borg-green
-                       hover:bg-borg-border disabled:opacity-40 text-sm transition-colors">
+            className="flex-1 py-2 rounded-lg bg-borg-green/10 border border-borg-green/30 text-borg-green
+                       hover:bg-borg-green/20 disabled:opacity-40 text-sm font-medium transition-colors">
             {busy ? 'Saving…' : 'Save Changes'}
           </button>
         </div>
@@ -731,14 +731,14 @@ function WeekTab({ recipes }) {
   return (
     <div className="flex flex-col h-full">
       {/* Week navigator */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-borg-border shrink-0">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-borg-border shrink-0">
         <button onClick={() => setWeekOf(addWeeks(weekOf, -1))}
           className="p-1 rounded text-borg-muted hover:text-borg-text hover:bg-borg-panel transition-colors">
           <ChevronLeft size={16} />
         </button>
         <div className="text-center">
-          <div className="text-borg-text text-sm font-medium">Week of {fmtDate(weekOf)}</div>
-          {plan && <div className="text-xs text-borg-dim">{plan.status}</div>}
+          <div className="text-borg-text font-semibold">Week of {fmtDate(weekOf)}</div>
+          {plan && <div className="text-xs text-borg-muted mt-0.5">{plan.status}</div>}
         </div>
         <button onClick={() => setWeekOf(addWeeks(weekOf, 1))}
           className="p-1 rounded text-borg-muted hover:text-borg-text hover:bg-borg-panel transition-colors">
@@ -779,18 +779,18 @@ function WeekTab({ recipes }) {
         )}
         {days.map(day => (
           <div key={day.date}
-            className="bg-borg-surface border border-borg-border rounded-lg p-3 hover:border-borg-green/30 transition-colors">
-            <div className="flex items-center gap-2 flex-wrap mb-1.5">
-              <span className="text-borg-text font-medium text-sm">{day.day_name}</span>
-              <span className="text-borg-dim text-xs">{fmtDate(day.date)}</span>
+            className="bg-borg-surface rounded-xl p-4 hover:bg-borg-panel/30 transition-colors border border-borg-border/60">
+            <div className="flex items-center gap-2.5 flex-wrap mb-2">
+              <span className="text-borg-text font-semibold">{day.day_name}</span>
+              <span className="text-borg-muted text-sm">{fmtDate(day.date)}</span>
               <ContextBadge context={day.meal_context} />
               {day.chris_home
-                ? <span className="flex items-center gap-0.5 text-xs text-borg-dim"><User size={10} /> Chris home</span>
-                : <span className="flex items-center gap-0.5 text-xs text-orange-400"><UserX size={10} /> Chris away</span>
+                ? <span className="flex items-center gap-1 text-xs text-borg-dim"><User size={10} /> Chris home</span>
+                : <span className="flex items-center gap-1 text-xs text-orange-400"><UserX size={10} /> Chris away</span>
               }
             </div>
             {day.events_summary && (
-              <div className="text-xs text-borg-dim mb-1.5 truncate">{day.events_summary}</div>
+              <div className="text-xs text-borg-muted/70 mb-2 truncate">{day.events_summary}</div>
             )}
             <MealLine recipeId={day.adult_recipe_id} slot="adult" day={day} />
             <MealLine recipeId={day.kids_recipe_id}  slot="kids"  day={day} />
@@ -865,7 +865,7 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
   return (
     <div className="flex flex-col h-full">
       {/* Search + filters */}
-      <div className="px-4 py-3 border-b border-borg-border space-y-2 shrink-0">
+      <div className="px-5 py-3 border-b border-borg-border space-y-2.5 shrink-0">
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
@@ -902,61 +902,63 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
       </div>
 
       {/* Recipe grid */}
-      <div className="flex-1 overflow-y-auto p-3">
-        {isLoading && <div className="text-center text-borg-dim py-8">Loading…</div>}
+      <div className="flex-1 overflow-y-auto p-4">
+        {isLoading && <div className="text-center text-borg-muted py-12">Loading…</div>}
         {!isLoading && filtered.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-borg-dim text-center space-y-3">
-            <ChefHat size={32} className="opacity-20" />
-            <div className="text-sm">No recipes yet. Add one!</div>
+          <div className="flex flex-col items-center justify-center h-full text-center space-y-3">
+            <ChefHat size={36} className="text-borg-border" />
+            <div>
+              <div className="text-borg-text font-medium">No recipes yet</div>
+              <div className="text-borg-muted text-sm mt-0.5">Add your first recipe to get started.</div>
+            </div>
           </div>
         )}
-        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))' }}>
           {filtered.map(r => (
             <div key={r.id}
-              className="group bg-borg-surface border border-borg-border rounded-lg overflow-hidden
-                         hover:border-borg-green/30 transition-colors flex flex-col">
-              {/* Image — fixed 4:3 aspect, object-cover crops cleanly */}
-              <div className="relative overflow-hidden bg-borg-panel" style={{ paddingBottom: '66.67%' }}>
+              className="group bg-borg-surface border border-borg-border/60 rounded-xl overflow-hidden
+                         hover:border-borg-border hover:shadow-lg transition-all flex flex-col">
+              {/* Image */}
+              <div className="relative overflow-hidden bg-borg-panel" style={{ paddingBottom: '62.5%' }}>
                 {r.image
                   ? <img src={r.image} alt={r.name}
                       className="absolute inset-0 w-full h-full object-cover"
                       onError={e => { e.currentTarget.parentElement.classList.add('hidden') }} />
                   : <div className="absolute inset-0 flex items-center justify-center">
-                      <ChefHat size={28} className="text-borg-border" />
+                      <ChefHat size={28} className="text-borg-border/60" />
                     </div>
                 }
               </div>
 
-              <div className="p-3 flex flex-col flex-1">
+              <div className="p-3.5 flex flex-col flex-1">
                 {/* Name + link */}
-                <div className="flex items-start justify-between gap-1 mb-1">
-                  <span className="text-borg-text font-medium text-sm leading-snug">{r.name}</span>
+                <div className="flex items-start justify-between gap-1 mb-1.5">
+                  <span className="text-borg-text font-medium leading-snug">{r.name}</span>
                   {r.url && (
                     <a href={r.url} target="_blank" rel="noopener noreferrer"
-                      className="text-borg-green/60 hover:text-borg-green shrink-0 mt-0.5">
+                      className="text-borg-dim hover:text-borg-green shrink-0 mt-0.5 transition-colors">
                       <span className="text-xs">↗</span>
                     </a>
                   )}
                 </div>
 
                 {/* Meta row */}
-                <div className="flex items-center gap-2 flex-wrap mb-1">
-                  {r.source && <span className="text-borg-dim text-xs">{r.source}</span>}
+                <div className="flex items-center gap-2 flex-wrap text-xs text-borg-muted mb-1">
+                  {r.source && <span>{r.source}</span>}
                   {r.total_minutes > 0 && (
-                    <span className="flex items-center gap-0.5 text-xs text-borg-dim">
+                    <span className="flex items-center gap-0.5">
                       <Clock size={9} />{r.total_minutes}m
                     </span>
                   )}
-                  {r.vegetarian && <span className="text-xs text-green-500">veg</span>}
-                  {r.kid_friendly && <span className="text-xs text-blue-400">kids</span>}
-                  {!r.in_rotation && <span className="text-xs text-borg-dim/50">off-rotation</span>}
+                  {r.vegetarian && <span className="text-emerald-400">veg</span>}
+                  {r.kid_friendly && <span className="text-blue-400">kids</span>}
+                  {!r.in_rotation && <span className="text-borg-dim">off-rotation</span>}
                 </div>
 
-                {r.notes && <div className="text-xs text-borg-dim line-clamp-2 mb-1">{r.notes}</div>}
+                {r.notes && <div className="text-xs text-borg-muted/80 line-clamp-2 mb-1.5 leading-relaxed">{r.notes}</div>}
 
-                {/* Spacer + actions pinned to bottom */}
                 <div className="flex-1" />
-                <div className="flex items-center justify-between mt-2 pt-2 border-t border-borg-border/50">
+                <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-borg-border/40">
                   {/* Rating */}
                   <div className="flex gap-0.5">
                     {[-1, 1, 2].map(v => {
@@ -964,8 +966,8 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
                       const Icon = m.icon
                       return (
                         <button key={v} onClick={() => rate.mutate({ id: r.id, rating: v })}
-                          className={`p-1 rounded transition-colors ${
-                            r.rating === v ? m.color + ' bg-borg-panel' : 'text-borg-dim hover:' + m.color
+                          className={`p-1 rounded-md transition-colors ${
+                            r.rating === v ? m.color + ' bg-borg-panel' : 'text-borg-dim/60 hover:' + m.color
                           }`} title={m.label}>
                           <Icon size={12} />
                         </button>
@@ -975,11 +977,11 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
                   {/* Edit + Delete */}
                   <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button onClick={() => setEditRecipe(r)}
-                      className="p-1 rounded text-borg-dim hover:text-borg-green hover:bg-borg-panel transition-colors">
+                      className="p-1 rounded-md text-borg-dim hover:text-borg-green hover:bg-borg-panel transition-colors">
                       <Pencil size={12} />
                     </button>
                     <button onClick={() => { if (confirm(`Delete "${r.name}"?`)) remove.mutate(r.id) }}
-                      className="p-1 rounded text-borg-dim hover:text-red-400 hover:bg-borg-border transition-colors">
+                      className="p-1 rounded-md text-borg-dim hover:text-red-400 hover:bg-borg-panel transition-colors">
                       <Trash2 size={12} />
                     </button>
                   </div>
@@ -1303,11 +1305,11 @@ export default function MealPlannerView() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-borg-border bg-borg-surface shrink-0">
-        <ChefHat size={16} className="text-borg-green" />
+      <div className="flex items-center gap-3 px-6 py-4 border-b border-borg-border shrink-0">
+        <ChefHat size={18} className="text-borg-green" />
         <div>
-          <div className="text-borg-green font-semibold text-sm">Meal Planner</div>
-          <div className="text-borg-dim text-xs">{recipes.length} recipes</div>
+          <div className="text-borg-text font-semibold">Meal Planner</div>
+          <div className="text-borg-muted text-sm">{recipes.length} recipes</div>
         </div>
       </div>
 

@@ -27,26 +27,31 @@ export default function MessageInput({ onSend, disabled, placeholder = 'Message 
   }
 
   return (
-    <div className="flex items-end gap-2 p-3 border-t border-borg-border bg-borg-surface">
-      <textarea
-        ref={ref}
-        rows={1}
-        onKeyDown={handleKey}
-        onInput={autoResize}
-        disabled={disabled}
-        placeholder={placeholder}
-        className="flex-1 resize-none bg-borg-panel border border-borg-border rounded px-3 py-2 text-borg-text
-                   placeholder-borg-dim focus:outline-none focus:border-borg-green/50 text-sm leading-relaxed
-                   disabled:opacity-40 disabled:cursor-not-allowed transition-colors max-h-40"
-      />
-      <button
-        onClick={submit}
-        disabled={disabled}
-        className="shrink-0 p-2 rounded bg-borg-panel border border-borg-border text-borg-green
-                   hover:bg-borg-border disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-      >
-        <Send size={14} />
-      </button>
+    <div className="px-4 py-3 border-t border-borg-border bg-borg-surface">
+      <div className="flex items-end gap-2 bg-borg-panel rounded-xl border border-borg-border px-3 py-2
+                      focus-within:border-borg-green/40 transition-colors">
+        <textarea
+          ref={ref}
+          rows={1}
+          onKeyDown={handleKey}
+          onInput={autoResize}
+          disabled={disabled}
+          placeholder={placeholder}
+          className="flex-1 resize-none bg-transparent text-borg-text placeholder-borg-dim
+                     focus:outline-none text-sm leading-relaxed disabled:opacity-40
+                     disabled:cursor-not-allowed max-h-40 py-0.5"
+        />
+        <button
+          onClick={submit}
+          disabled={disabled}
+          className="shrink-0 p-1.5 rounded-lg bg-borg-green/10 text-borg-green
+                     hover:bg-borg-green/20 disabled:opacity-30 disabled:cursor-not-allowed
+                     transition-colors"
+        >
+          <Send size={13} />
+        </button>
+      </div>
+      <div className="text-borg-dim text-xs mt-1.5 text-right">Enter to send · Shift+Enter for newline</div>
     </div>
   )
 }

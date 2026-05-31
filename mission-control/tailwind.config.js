@@ -5,17 +5,18 @@ export default {
     extend: {
       colors: {
         borg: {
-          bg:      '#09090f',
-          surface: '#0e0d18',
-          panel:   '#13121f',
-          border:  '#1e1c35',
-          green:   '#a78bfa',
-          dim:     '#4a4570',
-          muted:   '#6b6590',
-          text:    '#ede9f8',
+          bg:      '#0c0c15',
+          surface: '#111120',
+          panel:   '#17162a',
+          border:  '#252342',
+          green:   '#9b87fa',
+          dim:     '#5c5a80',
+          muted:   '#9491b8',
+          text:    '#eeeaf8',
         }
       },
       fontFamily: {
+        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
         mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],
       }
     }
