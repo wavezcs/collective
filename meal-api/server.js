@@ -273,7 +273,7 @@ Return JSON:
 }
 
 Only flag CLEAR misclassifications. Keep the markdown concise and practical.` }
-  ], { temperature: 0.4, timeout: 120_000 });
+  ], { temperature: 0.4, timeout: 300_000 });
 
   if (result.updated_preferences) {
     await writePreferences(result.updated_preferences);
@@ -368,9 +368,17 @@ async function planWithAria(weekOf) {
     (d.context_reason ? ` (${d.context_reason})` : '')
   ).join('\n');
 
-  // Mains only for day assignment
+  // Mains only for day assignment — smart-select top 50 to keep prompt small
   const mains = recipes.filter(r => r.type !== 'side');
-  const recipeLines = mains.slice(0, 80).map(r =>
+  const neverPickedIds = new Set(neverPicked.map(r => r.id));
+  const sortedMains = [...mains].sort((a, b) => {
+    const aNever = neverPickedIds.has(a.id) ? 1 : 0;
+    const bNever = neverPickedIds.has(b.id) ? 1 : 0;
+    if (bNever !== aNever) return bNever - aNever; // never-tried first
+    return (b.rating ?? 0) - (a.rating ?? 0);      // then by rating desc
+  });
+  const selectedMains = sortedMains.slice(0, 50);
+  const recipeLines = selectedMains.map(r =>
     `${r.id}|${r.name}|${r.total_minutes || 0}min|veg:${!!r.vegetarian}|kids:${!!r.kid_friendly}|rated:${r.rating ?? 0}`
   ).join('\n');
 
@@ -379,7 +387,7 @@ async function planWithAria(weekOf) {
     `${r.id}|${r.name}|${r.total_minutes || 0}min|veg:${!!r.vegetarian}|kids:${!!r.kid_friendly}|rated:${r.rating ?? 0}`
   ).join('\n');
 
-  setPlanJobStatus(weekOf, 'running', `Asking Aria to plan ${mains.length} recipes across ${days.length} days… (~30–60s)`);
+  setPlanJobStatus(weekOf, 'running', `Asking Aria to plan ${selectedMains.length} recipes across ${days.length} days… (~30–60s)`);
   const result = await ollamaChat([
     { role: 'system', content: 'You are Aria, a thoughtful family meal planner. Return only valid JSON, no extra text.' },
     { role: 'user', content: `Plan dinners for the week of ${weekOf}.
@@ -416,7 +424,7 @@ Return JSON:
   ],
   "week_summary": "2-3 sentences summarizing the week"
 }` }
-  ], { temperature: 0.7, timeout: 120_000 });
+  ], { temperature: 0.7, timeout: 300_000 });
 
   // Validate recipe IDs
   const validIds = new Set(recipes.map(r => r.id));
