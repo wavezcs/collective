@@ -41,6 +41,15 @@ export async function deleteRecipe(id) {
   await fetch(`${BASE}/recipes/${id}`, { method: 'DELETE' })
 }
 
+export async function scrapeRecipe(url) {
+  const r = await fetch(`${BASE}/recipes/scrape`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url })
+  })
+  return r.json()
+}
+
 export async function rateRecipe(id, rating) {
   await fetch(`${BASE}/recipes/${id}/rate`, {
     method: 'POST',

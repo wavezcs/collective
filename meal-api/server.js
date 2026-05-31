@@ -215,6 +215,138 @@ function weekDates(weekOf) {
   return dates;
 }
 
+// ─── Recipe scraper ──────────────────────────────────────────────────────────
+
+// Parse ISO 8601 duration (PT30M, PT1H30M, PT1H) → minutes
+function parseDuration(str) {
+  if (!str) return 0;
+  const h = str.match(/(\d+)H/);
+  const m = str.match(/(\d+)M/);
+  return (h ? parseInt(h[1], 10) * 60 : 0) + (m ? parseInt(m[1], 10) : 0);
+}
+
+// Classify a single ingredient into whole_foods or target
+function classifyIngredient(item) {
+  const i = item.toLowerCase();
+  const wfPatterns = [
+    /\b(fresh|organic|produce)\b/,
+    /\b(onion|garlic|tomato|pepper|spinach|kale|broccoli|carrot|potato|cucumber|zucchini|squash|mushroom|celery|leek|shallot|avocado|lemon|lime|orange|apple|berry|berries|herb|basil|parsley|cilantro|thyme|rosemary|dill|mint|chive|scallion|ginger|jalape|arugula|lettuce|greens|cabbage|cauliflower|beet|asparagus|corn|pea|edamame|fennel|eggplant|artichoke)\b/,
+    /\b(milk|cream|butter|cheese|yogurt|egg|tofu|tempeh|mozzarella|parmesan|feta|ricotta|cheddar|brie|goat cheese)\b/,
+    /\b(chicken|beef|pork|salmon|shrimp|turkey|lamb|fish|ground)\b/,
+    /\b(bread|tortilla|pita|naan)\b/,
+  ];
+  const targetPatterns = [
+    /\b(canned|can of|jarred|jar of|dried|dry)\b/,
+    /\b(pasta|rice|quinoa|lentil|bean|chickpea|flour|sugar|salt|pepper|oil|vinegar|soy sauce|broth|stock|coconut milk|tomato paste|tomato sauce|crushed tomato)\b/,
+    /\b(panko|breadcrumb|cornstarch|baking|powder|soda|vanilla|chocolate|chip|nut|almond|walnut|pecan|cashew|peanut)\b/,
+    /\b(honey|maple syrup|molasses|jam|jelly|mustard|ketchup|mayo|hot sauce|worcestershire|sriracha)\b/,
+    /\b(cereal|oat|granola|chip|cracker|pretzel|popcorn)\b/,
+  ];
+  if (wfPatterns.some(p => p.test(i))) return 'whole_foods';
+  if (targetPatterns.some(p => p.test(i))) return 'target';
+  // Default: pantry-ish items go to Target, produce-sounding items to WF
+  return 'target';
+}
+
+async function scrapeRecipe(url) {
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; meal-planner/1.0)' },
+    signal: AbortSignal.timeout(15_000)
+  });
+  if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+  const html = await res.text();
+
+  // Extract JSON-LD blocks
+  const ldBlocks = [];
+  const ldRe = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let m;
+  while ((m = ldRe.exec(html)) !== null) {
+    try { ldBlocks.push(JSON.parse(m[1])); } catch {}
+  }
+
+  // Find Recipe schema (may be nested in @graph)
+  let schema = null;
+  for (const block of ldBlocks) {
+    const candidates = Array.isArray(block['@graph']) ? block['@graph'] : [block];
+    for (const node of candidates) {
+      const t = node['@type'];
+      if (t === 'Recipe' || (Array.isArray(t) && t.includes('Recipe'))) {
+        schema = node;
+        break;
+      }
+    }
+    if (schema) break;
+  }
+
+  // Derive source from hostname
+  const hostname = new URL(url).hostname.replace(/^www\./, '');
+  const sourceMap = {
+    'cookieandkate.com': 'Cookie & Kate',
+    'everydayannie.com': 'Everyday Annie',
+    'smittenkitchen.com': 'Smitten Kitchen',
+    'minimalistbaker.com': 'Minimalist Baker',
+    'halfbakedharvest.com': 'Half Baked Harvest',
+    'budgetbytes.com': 'Budget Bytes',
+    'allrecipes.com': 'Allrecipes',
+    'food52.com': 'Food52',
+    'thekitchn.com': 'The Kitchn',
+    'epicurious.com': 'Epicurious',
+    'delish.com': 'Delish',
+    'tasteofhome.com': 'Taste of Home',
+    'simplyrecipes.com': 'Simply Recipes',
+    'skinnytaste.com': 'Skinnytaste',
+    'wellplated.com': 'Well Plated',
+  };
+  const source = sourceMap[hostname] || hostname;
+
+  if (!schema) {
+    // Fallback: grab <title> for name
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    const name = titleMatch ? titleMatch[1].replace(/\s*[|\-–].*$/, '').trim() : '';
+    return { name, url, source };
+  }
+
+  const name = typeof schema.name === 'string' ? schema.name.trim() : '';
+  const prepMinutes  = parseDuration(schema.prepTime);
+  const cookMinutes  = parseDuration(schema.cookTime);
+  const totalMinutes = parseDuration(schema.totalTime) || (prepMinutes + cookMinutes);
+
+  // Ingredients
+  const rawIngredients = Array.isArray(schema.recipeIngredient) ? schema.recipeIngredient : [];
+  const wfItems = [];
+  const targetItems = [];
+  for (const ing of rawIngredients) {
+    if (classifyIngredient(ing) === 'whole_foods') wfItems.push(ing);
+    else targetItems.push(ing);
+  }
+
+  // Guess vegetarian: no meat keywords in ingredients
+  const meatRe = /\b(chicken|beef|pork|turkey|lamb|fish|shrimp|bacon|sausage|anchov|tuna|salmon|meat|ground)\b/i;
+  const allIngs = rawIngredients.join(' ');
+  const vegetarian = rawIngredients.length > 0 && !meatRe.test(allIngs);
+
+  // Tags
+  const tags = [];
+  if (totalMinutes > 0 && totalMinutes <= 30) tags.push('quick');
+  const keywords = schema.keywords ? String(schema.keywords).split(/[,;]/).map(k => k.trim().toLowerCase()).filter(Boolean) : [];
+  const tagKeep = ['soup', 'pasta', 'salad', 'vegan', 'gluten-free', 'one-pot', 'instant pot', 'slow cooker'];
+  for (const k of keywords) {
+    if (tagKeep.some(t => k.includes(t))) tags.push(k);
+  }
+
+  return {
+    name,
+    url,
+    source,
+    prep_minutes: prepMinutes,
+    total_minutes: totalMinutes,
+    vegetarian,
+    tags,
+    cached_wf_items: wfItems.length ? JSON.stringify(wfItems) : null,
+    cached_target_items: targetItems.length ? JSON.stringify(targetItems) : null,
+  };
+}
+
 // ─── Recipe DB ops ───────────────────────────────────────────────────────────
 
 async function listRecipes(filters = {}) {
@@ -605,6 +737,13 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'POST' && !id) {
         const body = await parseBody(req);
         json(res, 201, await createRecipe(body));
+        return;
+      }
+      // POST /meals/recipes/scrape
+      if (req.method === 'POST' && id === 'scrape') {
+        const body = await parseBody(req);
+        if (!body.url) { json(res, 400, { error: 'url required' }); return; }
+        json(res, 200, await scrapeRecipe(body.url));
         return;
       }
       // GET /meals/recipes/:id

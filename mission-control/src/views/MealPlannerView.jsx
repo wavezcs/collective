@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  listRecipes, createRecipe, updateRecipe, deleteRecipe, rateRecipe,
+  listRecipes, createRecipe, updateRecipe, deleteRecipe, rateRecipe, scrapeRecipe,
   listPlans, getPlan, createPlan, updateDay, generatePlan, approvePlan,
   getGrocery, toggleGroceryItem
 } from '../api/meals'
@@ -159,11 +159,40 @@ function AddRecipeModal({ onClose, onCreate }) {
   const [form, setForm] = useState({
     name: '', url: '', source: '', prep_minutes: '', total_minutes: '',
     vegetarian: false, has_meat_option: false, kid_friendly: false,
-    in_rotation: true, tags: '', notes: ''
+    in_rotation: true, tags: '', notes: '',
+    cached_wf_items: null, cached_target_items: null
   })
   const [busy, setBusy] = useState(false)
+  const [scraping, setScraping] = useState(false)
+  const [scrapeError, setScrapeError] = useState(null)
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  async function handleUrlBlur() {
+    const url = form.url.trim()
+    if (!url || !url.startsWith('http')) return
+    setScraping(true)
+    setScrapeError(null)
+    try {
+      const data = await scrapeRecipe(url)
+      if (data.error) { setScrapeError('Could not read recipe from URL'); return; }
+      setForm(f => ({
+        ...f,
+        name:          data.name        || f.name,
+        source:        data.source      || f.source,
+        prep_minutes:  data.prep_minutes ? String(data.prep_minutes) : f.prep_minutes,
+        total_minutes: data.total_minutes ? String(data.total_minutes) : f.total_minutes,
+        vegetarian:    data.vegetarian  ?? f.vegetarian,
+        tags:          data.tags?.length ? data.tags.join(', ') : f.tags,
+        cached_wf_items:     data.cached_wf_items     || f.cached_wf_items,
+        cached_target_items: data.cached_target_items || f.cached_target_items,
+      }))
+    } catch {
+      setScrapeError('Could not reach URL')
+    } finally {
+      setScraping(false)
+    }
+  }
 
   async function submit(e) {
     e.preventDefault()
@@ -197,21 +226,36 @@ function AddRecipeModal({ onClose, onCreate }) {
 
         <div className="overflow-y-auto flex-1 p-4 space-y-3">
           <div>
+            <label className={labelCls}>URL — paste to auto-fill</label>
+            <div className="relative">
+              <input
+                value={form.url}
+                onChange={e => { set('url', e.target.value); setScrapeError(null) }}
+                onBlur={handleUrlBlur}
+                placeholder="https://cookieandkate.com/…"
+                className={inputCls + (scraping ? ' pr-8' : '')}
+              />
+              {scraping && (
+                <Loader2 size={14} className="animate-spin text-borg-green absolute right-2.5 top-1/2 -translate-y-1/2" />
+              )}
+            </div>
+            {scrapeError && <div className="text-xs text-red-400 mt-1">{scrapeError}</div>}
+            {!scraping && !scrapeError && form.name && form.url && (
+              <div className="text-xs text-borg-green mt-1">Recipe info loaded from URL</div>
+            )}
+          </div>
+          <div>
             <label className={labelCls}>Recipe Name *</label>
             <input value={form.name} onChange={e => set('name', e.target.value)}
               placeholder="Lemon pasta, black bean tacos…" className={inputCls} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>URL</label>
-              <input value={form.url} onChange={e => set('url', e.target.value)}
-                placeholder="https://…" className={inputCls} />
-            </div>
-            <div>
               <label className={labelCls}>Source</label>
               <input value={form.source} onChange={e => set('source', e.target.value)}
                 placeholder="Cookie & Kate, Everyday Annie…" className={inputCls} />
             </div>
+            <div />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
