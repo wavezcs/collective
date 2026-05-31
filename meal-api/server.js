@@ -1696,7 +1696,9 @@ const server = http.createServer(async (req, res) => {
       // POST /meals/recipes
       if (req.method === 'POST' && !id) {
         const body = await parseBody(req);
-        json(res, 201, await createRecipe(body));
+        const created = await createRecipe(body);
+        analyzeNewRecipesBackground([created]);
+        json(res, 201, created);
         return;
       }
       // POST /meals/recipes/analyze — start background batch-analyze job
