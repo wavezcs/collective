@@ -100,6 +100,16 @@ export async function approvePlan(weekOf) {
   return r.json()
 }
 
+export async function clearPlan(weekOf) {
+  const r = await fetch(`${BASE}/plans/${weekOf}/clear`, { method: 'POST' })
+  return r.json()
+}
+
+export async function deduplicateRecipes() {
+  const r = await fetch(`${BASE}/recipes/deduplicate`, { method: 'POST' })
+  return r.json()
+}
+
 // ─── Grocery ──────────────────────────────────────────────────────────────────
 
 export async function getGrocery(weekOf) {

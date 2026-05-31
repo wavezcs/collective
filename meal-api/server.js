@@ -144,6 +144,7 @@ function classifyDay(events, dateStr) {
   let chrisHome = true;
   let eventsSummary = '';
   let context = 'normal';
+  let contextReason = null;
 
   // Check for Chris travel
   const travel = dayEvents.find(e => {
@@ -168,15 +169,18 @@ function classifyDay(events, dateStr) {
 
   if (specialEvent) {
     context = 'special';
+    contextReason = specialEvent.title || specialEvent.summary || null;
   } else if (eveningActivities.length >= 2) {
     context = 'super-fast';
+    contextReason = eveningActivities.map(e => e.title || e.summary || '').filter(Boolean).join(' & ');
   } else if (eveningActivities.length === 1) {
     context = 'fast';
+    contextReason = eveningActivities[0].title || eveningActivities[0].summary || null;
   }
 
   eventsSummary = dayEvents.map(e => e.title || e.summary || '').filter(Boolean).join(', ');
 
-  return { context, chrisHome, eventsSummary };
+  return { context, chrisHome, eventsSummary, contextReason };
 }
 
 // Pick a suitable recipe for a day
@@ -642,13 +646,14 @@ async function generatePlan(weekOf) {
   const recipes = await listRecipes({ in_rotation: 'true' });
 
   const days = plan.days.map(day => {
-    const { context, chrisHome, eventsSummary } = classifyDay(events, day.date);
+    const { context, chrisHome, eventsSummary, contextReason } = classifyDay(events, day.date);
     const suggested = pickRecipe(recipes, context, chrisHome);
     return {
       ...day,
       meal_context: context,
       chris_home: chrisHome,
       events_summary: eventsSummary,
+      context_reason: contextReason,
       adult_recipe_id: day.adult_recipe_id || (suggested ? suggested.id : null),
       kids_recipe_id: day.kids_recipe_id || null
     };
@@ -661,6 +666,46 @@ async function generatePlan(weekOf) {
       { weekOf, days: JSON.stringify(days) }
     );
     return { ...plan, days };
+  } finally {
+    await session.close();
+  }
+}
+
+async function clearPlanRecipes(weekOf) {
+  const plan = await getPlan(weekOf);
+  if (!plan) return null;
+  const days = plan.days.map(d => ({ ...d, adult_recipe_id: null, kids_recipe_id: null }));
+  const session = driver.session();
+  try {
+    await session.run('MATCH (p:MealPlan {week_of: $weekOf}) SET p.days = $days', { weekOf, days: JSON.stringify(days) });
+    return { ...plan, days };
+  } finally {
+    await session.close();
+  }
+}
+
+async function deduplicateRecipes() {
+  const session = driver.session();
+  try {
+    const r = await session.run(`
+      MATCH (r:Recipe)
+      WHERE r.url IS NOT NULL AND r.url <> ''
+      WITH r.url AS url, collect(r) AS recipes
+      WHERE size(recipes) > 1
+      RETURN url, recipes
+    `);
+    let deleted = 0;
+    for (const rec of r.records) {
+      const nodes = rec.get('recipes');
+      const recipes = nodes.map(n => serializeProps(n.properties));
+      // Keep the one created first, delete the rest
+      recipes.sort((a, b) => (a.created_at || '') < (b.created_at || '') ? -1 : 1);
+      for (const recipe of recipes.slice(1)) {
+        await session.run('MATCH (r:Recipe {id: $id}) DETACH DELETE r', { id: recipe.id });
+        deleted++;
+      }
+    }
+    return { deleted };
   } finally {
     await session.close();
   }
@@ -1028,6 +1073,11 @@ const server = http.createServer(async (req, res) => {
         json(res, 201, await createRecipe(body));
         return;
       }
+      // POST /meals/recipes/deduplicate
+      if (req.method === 'POST' && id === 'deduplicate') {
+        json(res, 200, await deduplicateRecipes());
+        return;
+      }
       // POST /meals/recipes/scrape
       if (req.method === 'POST' && id === 'scrape') {
         const body = await parseBody(req);
@@ -1095,6 +1145,13 @@ const server = http.createServer(async (req, res) => {
       // POST /meals/plans/:week/generate
       if (req.method === 'POST' && id && sub === 'generate') {
         json(res, 200, await generatePlan(id));
+        return;
+      }
+      // POST /meals/plans/:week/clear
+      if (req.method === 'POST' && id && sub === 'clear') {
+        const plan = await clearPlanRecipes(id);
+        if (!plan) { json(res, 404, { error: 'Not found' }); return; }
+        json(res, 200, plan);
         return;
       }
       // POST /meals/plans/:week/approve (backward compat — now just generates grocery)

@@ -2,15 +2,15 @@ import React, { useState, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   listRecipes, createRecipe, updateRecipe, deleteRecipe, rateRecipe, scrapeRecipe,
-  listPlans, getPlan, createPlan, updateDay, generatePlan,
+  listPlans, getPlan, createPlan, updateDay, generatePlan, clearPlan,
   getGrocery, generateGrocery, updateGroceryItem, addGroceryItem, removeGroceryItem,
-  getStaples, updateStaples,
+  getStaples, updateStaples, deduplicateRecipes,
   listPinterestBoards, addPinterestBoard, deletePinterestBoard, scanPinterestBoard
 } from '../api/meals'
 import {
   ChefHat, Zap, Clock, Star, Plus, Trash2, ThumbsUp, ThumbsDown,
   Heart, ShoppingCart, Calendar, ChevronLeft, ChevronRight,
-  Check, Copy, User, UserX, RefreshCw, Loader2, Pencil, Download
+  Check, Copy, User, UserX, RefreshCw, Loader2, Pencil, Download, Shuffle
 } from 'lucide-react'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -661,11 +661,14 @@ function EditRecipeModal({ recipe, onClose, onSave, allTags = [] }) {
 
 // ─── Week Tab ─────────────────────────────────────────────────────────────────
 
+const CONTEXT_OPTIONS = ['normal', 'fast', 'super-fast', 'special']
+
 function WeekTab({ recipes }) {
   const qc = useQueryClient()
   const [weekOf, setWeekOf] = useState(() => toMonday(new Date()))
-  // pickerDay: { day, slot: 'adult'|'kids' }
   const [picker, setPicker] = useState(null)
+  const [confirmClear, setConfirmClear] = useState(false)
+  const [editingContext, setEditingContext] = useState(null) // date string of open dropdown
 
   const { data: plan, isLoading } = useQuery({
     queryKey: ['plan', weekOf],
@@ -685,6 +688,11 @@ function WeekTab({ recipes }) {
     onSuccess: () => qc.invalidateQueries(['plan', weekOf])
   })
 
+  const clearWeek = useMutation({
+    mutationFn: () => clearPlan(weekOf),
+    onSuccess: () => { qc.invalidateQueries(['plan', weekOf]); setConfirmClear(false) }
+  })
+
   const pickMeal = useMutation({
     mutationFn: ({ date, slot, recipe_id }) => updateDay(weekOf, date, {
       [slot === 'kids' ? 'kids_recipe_id' : 'adult_recipe_id']: recipe_id
@@ -692,9 +700,36 @@ function WeekTab({ recipes }) {
     onSuccess: () => qc.invalidateQueries(['plan', weekOf])
   })
 
+  const editDay = useMutation({
+    mutationFn: ({ date, data }) => updateDay(weekOf, date, data),
+    onSuccess: () => qc.invalidateQueries(['plan', weekOf])
+  })
+
   async function handlePick(recipeId) {
     await pickMeal.mutateAsync({ date: picker.day.date, slot: picker.slot, recipe_id: recipeId })
     setPicker(null)
+  }
+
+  function autoPickRecipe(day, slot) {
+    const currentId = slot === 'kids' ? day.kids_recipe_id : day.adult_recipe_id
+    const context = day.meal_context || 'normal'
+    const chrisHome = day.chris_home !== false
+
+    let pool = recipes.filter(r => r.rating !== -1 && r.in_rotation && r.id !== currentId)
+
+    if (context === 'fast' || context === 'super-fast') {
+      const maxMin = context === 'super-fast' ? 20 : 30
+      const timed = pool.filter(r => !r.total_minutes || r.total_minutes <= maxMin)
+      if (timed.length) pool = timed
+    }
+
+    if (!chrisHome) {
+      const pref = pool.filter(r => r.vegetarian && r.kid_friendly)
+      if (pref.length) pool = pref
+    }
+
+    if (!pool.length) return null
+    return pool[Math.floor(Math.random() * pool.length)]
   }
 
   const days = plan?.days || []
@@ -719,6 +754,15 @@ function WeekTab({ recipes }) {
           : <span className="text-borg-dim text-xs italic flex-1">Not planned</span>
         }
         <button
+          title="Pick different recipe"
+          onClick={() => {
+            const picked = autoPickRecipe(day, slot)
+            if (picked) pickMeal.mutate({ date: day.date, slot, recipe_id: picked.id })
+          }}
+          className="shrink-0 p-1 rounded text-borg-dim hover:text-borg-green hover:bg-borg-panel transition-colors">
+          <Shuffle size={11} />
+        </button>
+        <button
           onClick={() => setPicker({ day, slot })}
           className="shrink-0 text-xs px-1.5 py-0.5 rounded border border-borg-border text-borg-muted
                      hover:text-borg-text hover:border-borg-green/40 transition-colors">
@@ -729,7 +773,7 @@ function WeekTab({ recipes }) {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" onClick={() => setEditingContext(null)}>
       {/* Week navigator */}
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-borg-border shrink-0">
         <button onClick={() => setWeekOf(addWeeks(weekOf, -1))}
@@ -747,7 +791,7 @@ function WeekTab({ recipes }) {
       </div>
 
       {/* Action buttons */}
-      <div className="flex gap-2 px-4 py-2 border-b border-borg-border shrink-0">
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-borg-border shrink-0">
         {!plan && (
           <button onClick={() => ensurePlan.mutate()}
             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-borg-border
@@ -762,6 +806,27 @@ function WeekTab({ recipes }) {
             {generate.isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
             Auto-fill from calendar
           </button>
+        )}
+        {plan && !confirmClear && (
+          <button onClick={e => { e.stopPropagation(); setConfirmClear(true) }}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-borg-border
+                       text-borg-muted hover:text-red-400 hover:border-red-400/40 transition-colors ml-auto">
+            <Trash2 size={12} /> Clear week
+          </button>
+        )}
+        {plan && confirmClear && (
+          <div className="flex items-center gap-1.5 ml-auto" onClick={e => e.stopPropagation()}>
+            <span className="text-xs text-borg-muted">Clear all meals?</span>
+            <button onClick={() => clearWeek.mutate()} disabled={clearWeek.isPending}
+              className="text-xs px-2 py-1 rounded bg-red-500/10 border border-red-500/40 text-red-400
+                         hover:bg-red-500/20 transition-colors disabled:opacity-50">
+              {clearWeek.isPending ? 'Clearing…' : 'Yes, clear'}
+            </button>
+            <button onClick={() => setConfirmClear(false)}
+              className="text-xs px-2 py-1 rounded text-borg-muted hover:text-borg-text hover:bg-borg-panel transition-colors">
+              Cancel
+            </button>
+          </div>
         )}
       </div>
 
@@ -780,18 +845,50 @@ function WeekTab({ recipes }) {
         {days.map(day => (
           <div key={day.date}
             className="bg-borg-surface rounded-xl p-4 hover:bg-borg-panel/30 transition-colors border border-borg-border/60">
-            <div className="flex items-center gap-2.5 flex-wrap mb-2">
+            <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
               <span className="text-borg-text font-semibold">{day.day_name}</span>
               <span className="text-borg-muted text-sm">{fmtDate(day.date)}</span>
-              <ContextBadge context={day.meal_context} />
-              {day.chris_home
-                ? <span className="flex items-center gap-1 text-xs text-borg-dim"><User size={10} /> Chris home</span>
-                : <span className="flex items-center gap-1 text-xs text-orange-400"><UserX size={10} /> Chris away</span>
-              }
+
+              {/* Editable context badge */}
+              <div className="relative" onClick={e => e.stopPropagation()}>
+                <button
+                  onClick={() => setEditingContext(editingContext === day.date ? null : day.date)}
+                  className="hover:opacity-80 transition-opacity">
+                  <ContextBadge context={day.meal_context} />
+                </button>
+                {editingContext === day.date && (
+                  <div className="absolute z-20 top-full left-0 mt-1 bg-borg-surface border border-borg-border
+                                  rounded-lg shadow-xl overflow-hidden min-w-[130px]">
+                    {CONTEXT_OPTIONS.map(ctx => (
+                      <button key={ctx} onClick={() => {
+                        editDay.mutate({ date: day.date, data: { meal_context: ctx } })
+                        setEditingContext(null)
+                      }} className="flex items-center gap-2 w-full px-3 py-1.5 hover:bg-borg-panel transition-colors">
+                        <ContextBadge context={ctx} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Clickable Chris status */}
+              <button
+                onClick={() => editDay.mutate({ date: day.date, data: { chris_home: !day.chris_home } })}
+                className="flex items-center gap-1 text-xs transition-colors hover:opacity-75">
+                {day.chris_home
+                  ? <><User size={10} className="text-borg-dim" /><span className="text-borg-dim">Chris home</span></>
+                  : <><UserX size={10} className="text-orange-400" /><span className="text-orange-400">Chris away</span></>
+                }
+              </button>
             </div>
-            {day.events_summary && (
-              <div className="text-xs text-borg-muted/70 mb-2 truncate">{day.events_summary}</div>
+
+            {/* Context reason — why this day is fast/special */}
+            {day.context_reason && day.meal_context !== 'normal' && (
+              <div className="text-xs text-borg-muted/80 mb-2">
+                <Zap size={9} className="inline mr-1 opacity-60" />{day.context_reason}
+              </div>
             )}
+
             <MealLine recipeId={day.adult_recipe_id} slot="adult" day={day} />
             <MealLine recipeId={day.kids_recipe_id}  slot="kids"  day={day} />
           </div>
@@ -827,6 +924,7 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
   const [showAdd, setShowAdd] = useState(false)
   const [showPinterest, setShowPinterest] = useState(false)
   const [editRecipe, setEditRecipe] = useState(null)
+  const [dedupResult, setDedupResult] = useState(null)
 
   const create = useMutation({
     mutationFn: createRecipe,
@@ -841,6 +939,11 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
   const remove = useMutation({
     mutationFn: deleteRecipe,
     onSuccess: () => { qc.invalidateQueries(['recipes']); onRefresh() }
+  })
+
+  const dedup = useMutation({
+    mutationFn: deduplicateRecipes,
+    onSuccess: (data) => { qc.invalidateQueries(['recipes']); onRefresh(); setDedupResult(data) }
   })
 
   const rate = useMutation({
@@ -886,11 +989,18 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
               </button>
             ))}
           </div>
-          <div className="flex gap-1.5">
+          <div className="flex gap-1.5 items-center">
             <button onClick={() => setShowPinterest(true)}
               className="flex items-center gap-1.5 text-xs text-borg-muted px-2.5 py-1.5 rounded border border-borg-border
                          hover:text-borg-text hover:border-borg-green/40 transition-colors">
               <Download size={12} /> Pinterest
+            </button>
+            <button onClick={() => { setDedupResult(null); dedup.mutate() }} disabled={dedup.isPending}
+              title="Remove duplicate recipes (same URL)"
+              className="flex items-center gap-1.5 text-xs text-borg-muted px-2.5 py-1.5 rounded border border-borg-border
+                         hover:text-borg-text hover:border-borg-green/40 transition-colors disabled:opacity-50">
+              {dedup.isPending ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+              {dedupResult != null ? `Removed ${dedupResult.deleted}` : 'Dedup'}
             </button>
             <button onClick={() => setShowAdd(true)}
               className="flex items-center gap-1.5 text-xs text-borg-green px-2.5 py-1.5 rounded border border-borg-green/40
