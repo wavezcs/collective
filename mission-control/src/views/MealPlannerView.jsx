@@ -160,7 +160,7 @@ function AddRecipeModal({ onClose, onCreate }) {
     name: '', url: '', source: '', prep_minutes: '', total_minutes: '',
     vegetarian: false, has_meat_option: false, kid_friendly: false,
     in_rotation: true, tags: '', notes: '',
-    cached_wf_items: null, cached_target_items: null
+    image: null, cached_wf_items: null, cached_target_items: null
   })
   const [busy, setBusy] = useState(false)
   const [scraping, setScraping] = useState(false)
@@ -184,6 +184,7 @@ function AddRecipeModal({ onClose, onCreate }) {
         total_minutes: data.total_minutes ? String(data.total_minutes) : f.total_minutes,
         vegetarian:    data.vegetarian  ?? f.vegetarian,
         tags:          data.tags?.length ? data.tags.join(', ') : f.tags,
+        image:               data.image               || f.image,
         cached_wf_items:     data.cached_wf_items     || f.cached_wf_items,
         cached_target_items: data.cached_target_items || f.cached_target_items,
       }))
@@ -565,8 +566,19 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
         )}
         {filtered.map(r => (
           <div key={r.id}
-            className="group bg-borg-surface border border-borg-border rounded-lg p-3 hover:border-borg-green/30 transition-colors">
-            <div className="flex items-start justify-between gap-2">
+            className="group bg-borg-surface border border-borg-border rounded-lg overflow-hidden hover:border-borg-green/30 transition-colors">
+            {/* Image */}
+            {r.image && (
+              <div className="w-full h-36 bg-borg-panel overflow-hidden">
+                <img
+                  src={r.image}
+                  alt={r.name}
+                  className="w-full h-full object-cover"
+                  onError={e => { e.currentTarget.parentElement.style.display = 'none' }}
+                />
+              </div>
+            )}
+            <div className="p-3 flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-borg-text font-medium text-sm">{r.name}</span>
@@ -599,7 +611,6 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
 
               {/* Actions */}
               <div className="flex items-center gap-1 shrink-0">
-                {/* Rating */}
                 <div className="flex gap-0.5">
                   {[-1, 1, 2].map(v => {
                     const m = RATING_META[String(v)]

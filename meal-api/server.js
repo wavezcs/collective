@@ -299,17 +299,31 @@ async function scrapeRecipe(url) {
   };
   const source = sourceMap[hostname] || hostname;
 
+  // Extract og:image as fallback image source
+  const ogImageMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+                    || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+  const ogImage = ogImageMatch ? ogImageMatch[1] : null;
+
   if (!schema) {
-    // Fallback: grab <title> for name
+    // Fallback: grab <title> and og:image
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
     const name = titleMatch ? titleMatch[1].replace(/\s*[|\-–].*$/, '').trim() : '';
-    return { name, url, source };
+    return { name, url, source, image: ogImage };
   }
 
   const name = typeof schema.name === 'string' ? schema.name.trim() : '';
   const prepMinutes  = parseDuration(schema.prepTime);
   const cookMinutes  = parseDuration(schema.cookTime);
   const totalMinutes = parseDuration(schema.totalTime) || (prepMinutes + cookMinutes);
+
+  // Image: prefer schema.image, fall back to og:image
+  let image = ogImage;
+  if (schema.image) {
+    const img = schema.image;
+    if (typeof img === 'string') image = img;
+    else if (Array.isArray(img)) image = typeof img[0] === 'string' ? img[0] : img[0]?.url || ogImage;
+    else if (typeof img === 'object') image = img.url || ogImage;
+  }
 
   // Ingredients
   const rawIngredients = Array.isArray(schema.recipeIngredient) ? schema.recipeIngredient : [];
@@ -338,6 +352,7 @@ async function scrapeRecipe(url) {
     name,
     url,
     source,
+    image,
     prep_minutes: prepMinutes,
     total_minutes: totalMinutes,
     vegetarian,
@@ -418,6 +433,7 @@ async function createRecipe(data) {
         times_made: $times_made,
         last_made: $last_made,
         notes: $notes,
+        image: $image,
         cached_wf_items: $cached_wf_items,
         cached_target_items: $cached_target_items,
         created_at: $created_at
@@ -427,6 +443,7 @@ async function createRecipe(data) {
         name:               data.name || 'Untitled Recipe',
         url:                data.url || null,
         source:             data.source || null,
+        image:              data.image || null,
         prep_minutes:       neo4j.int(data.prep_minutes || 0),
         total_minutes:      neo4j.int(data.total_minutes || 0),
         vegetarian:         data.vegetarian === true || data.vegetarian === 'true',
