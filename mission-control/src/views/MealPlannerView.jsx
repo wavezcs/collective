@@ -92,12 +92,16 @@ function RatingBadge({ rating }) {
 
 function RecipePickerModal({ recipes, day, slot, onPick, onClose }) {
   const [search, setSearch] = useState('')
+  const [sideOnly, setSideOnly] = useState(slot === 'extra')
+
   const filtered = recipes.filter(r => {
+    if (sideOnly && r.type !== 'side') return false
     if (!search) return true
     return r.name.toLowerCase().includes(search.toLowerCase())
   })
-  const currentId = slot === 'kids' ? day.kids_recipe_id : day.adult_recipe_id
-  const slotLabel = slot === 'kids' ? 'Kids' : 'Adults'
+  const currentIds = slot === 'extra' ? (day.extra_ids || []) : []
+  const currentId  = slot === 'kids' ? day.kids_recipe_id : slot === 'adult' ? day.adult_recipe_id : null
+  const slotLabel  = slot === 'kids' ? 'Kids' : slot === 'extra' ? 'Side / Extra' : 'Adults'
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
@@ -112,7 +116,7 @@ function RecipePickerModal({ recipes, day, slot, onPick, onClose }) {
           </div>
           <button onClick={onClose} className="text-borg-muted hover:text-borg-text text-lg leading-none">×</button>
         </div>
-        <div className="p-3 border-b border-borg-border">
+        <div className="p-3 border-b border-borg-border space-y-2">
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -121,20 +125,34 @@ function RecipePickerModal({ recipes, day, slot, onPick, onClose }) {
             className="w-full bg-borg-panel border border-borg-border/80 rounded-lg px-3 py-2 text-sm text-borg-text
                        placeholder-borg-dim focus:outline-none focus:border-borg-green/50 focus:bg-borg-panel"
           />
+          {slot === 'extra' && (
+            <div className="flex gap-1.5">
+              <button onClick={() => setSideOnly(true)}
+                className={`text-xs px-2.5 py-1 rounded border transition-colors ${sideOnly ? 'border-purple-400/60 text-purple-400 bg-borg-panel' : 'border-borg-border text-borg-muted hover:text-borg-text'}`}>
+                Sides only
+              </button>
+              <button onClick={() => setSideOnly(false)}
+                className={`text-xs px-2.5 py-1 rounded border transition-colors ${!sideOnly ? 'border-borg-green/60 text-borg-green bg-borg-panel' : 'border-borg-border text-borg-muted hover:text-borg-text'}`}>
+                All recipes
+              </button>
+            </div>
+          )}
         </div>
         <div className="overflow-y-auto flex-1 p-2 space-y-1">
-          <button
-            onClick={() => onPick(null)}
-            className="w-full text-left px-3 py-2 rounded text-borg-muted text-sm hover:bg-borg-panel hover:text-borg-text transition-colors"
-          >
-            — Clear / Not planned
-          </button>
+          {slot !== 'extra' && (
+            <button
+              onClick={() => onPick(null)}
+              className="w-full text-left px-3 py-2 rounded text-borg-muted text-sm hover:bg-borg-panel hover:text-borg-text transition-colors"
+            >
+              — Clear / Not planned
+            </button>
+          )}
           {filtered.map(r => (
             <button
               key={r.id}
               onClick={() => onPick(r.id)}
               className={`w-full text-left px-3 py-2 rounded transition-colors hover:bg-borg-panel
-                ${currentId === r.id ? 'bg-borg-panel border border-borg-green/40' : ''}`}
+                ${(currentId === r.id || currentIds.includes(r.id)) ? 'bg-borg-panel border border-borg-green/40' : ''}`}
             >
               <div className="flex items-center justify-between">
                 <span className="text-borg-text text-sm">{r.name}</span>
@@ -145,6 +163,7 @@ function RecipePickerModal({ recipes, day, slot, onPick, onClose }) {
                 {r.total_minutes > 0 && <span>{r.total_minutes}m</span>}
                 {r.vegetarian && <span className="text-green-500">veg</span>}
                 {r.kid_friendly && <span className="text-blue-400">kids</span>}
+                {r.type === 'side' && <span className="text-purple-400">side</span>}
               </div>
             </button>
           ))}
@@ -245,7 +264,7 @@ function AddRecipeModal({ onClose, onCreate, allTags = [] }) {
   const [form, setForm] = useState({
     name: '', url: '', source: '', prep_minutes: '', total_minutes: '',
     vegetarian: false, has_meat_option: false, kid_friendly: false,
-    in_rotation: true, tags: [], notes: '',
+    in_rotation: true, type: 'main', tags: [], notes: '',
     image: null, cached_wf_items: null, cached_target_items: null
   })
   const [busy, setBusy] = useState(false)
@@ -372,6 +391,11 @@ function AddRecipeModal({ onClose, onCreate, allTags = [] }) {
                 {label}
               </label>
             ))}
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" checked={form.type === 'side'} onChange={e => set('type', e.target.checked ? 'side' : 'main')}
+                className="accent-purple-500" />
+              Side dish
+            </label>
           </div>
         </div>
 
@@ -563,6 +587,7 @@ function EditRecipeModal({ recipe, onClose, onSave, allTags = [] }) {
     has_meat_option: recipe.has_meat_option || false,
     kid_friendly:  recipe.kid_friendly  || false,
     in_rotation:   recipe.in_rotation   !== false,
+    type:          recipe.type          || 'main',
     tags:          Array.isArray(recipe.tags) ? recipe.tags : [],
     notes:         recipe.notes         || '',
   })
@@ -641,6 +666,11 @@ function EditRecipeModal({ recipe, onClose, onSave, allTags = [] }) {
                 {label}
               </label>
             ))}
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" checked={form.type === 'side'} onChange={e => set('type', e.target.checked ? 'side' : 'main')}
+                className="accent-purple-500" />
+              Side dish
+            </label>
           </div>
         </div>
         <div className="flex gap-2 p-4 border-t border-borg-border">
@@ -705,9 +735,28 @@ function WeekTab({ recipes }) {
     onSuccess: () => qc.invalidateQueries(['plan', weekOf])
   })
 
+  const rateInWeek = useMutation({
+    mutationFn: ({ id, rating }) => rateRecipe(id, rating),
+    onSuccess: () => qc.invalidateQueries(['recipes'])
+  })
+
   async function handlePick(recipeId) {
-    await pickMeal.mutateAsync({ date: picker.day.date, slot: picker.slot, recipe_id: recipeId })
+    const { day, slot } = picker
+    if (slot === 'extra') {
+      // Add to extras array (don't close if they want to add more)
+      if (recipeId) {
+        const extras = [...(day.extra_ids || []), recipeId]
+        await editDay.mutateAsync({ date: day.date, data: { extra_ids: extras } })
+      }
+    } else {
+      await pickMeal.mutateAsync({ date: day.date, slot, recipe_id: recipeId })
+    }
     setPicker(null)
+  }
+
+  function removeExtra(day, idx) {
+    const extras = (day.extra_ids || []).filter((_, i) => i !== idx)
+    editDay.mutate({ date: day.date, data: { extra_ids: extras } })
   }
 
   function autoPickRecipe(day, slot) {
@@ -734,6 +783,27 @@ function WeekTab({ recipes }) {
 
   const days = plan?.days || []
 
+  function InlineRating({ recipe }) {
+    if (!recipe) return null
+    const r = recipe.rating ?? 0
+    return (
+      <div className="flex items-center gap-0.5 shrink-0">
+        <button title="Dislike" onClick={() => rateInWeek.mutate({ id: recipe.id, rating: r === -1 ? 0 : -1 })}
+          className={`p-0.5 rounded transition-colors ${r === -1 ? 'text-red-400' : 'text-borg-border hover:text-red-400'}`}>
+          <ThumbsDown size={11} />
+        </button>
+        <button title="Like" onClick={() => rateInWeek.mutate({ id: recipe.id, rating: r === 1 ? 0 : 1 })}
+          className={`p-0.5 rounded transition-colors ${r === 1 ? 'text-borg-green' : 'text-borg-border hover:text-borg-green'}`}>
+          <ThumbsUp size={11} />
+        </button>
+        <button title="Love" onClick={() => rateInWeek.mutate({ id: recipe.id, rating: r === 2 ? 0 : 2 })}
+          className={`p-0.5 rounded transition-colors ${r === 2 ? 'text-pink-400' : 'text-borg-border hover:text-pink-400'}`}>
+          <Heart size={11} />
+        </button>
+      </div>
+    )
+  }
+
   function MealLine({ recipeId, slot, day }) {
     const recipe = recipeId ? recipeMap[recipeId] : null
     const isKids = slot === 'kids'
@@ -747,14 +817,13 @@ function WeekTab({ recipes }) {
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
               <ChefHat size={11} className={isKids ? 'text-blue-400 shrink-0' : 'text-borg-green shrink-0'} />
               <span className="text-borg-text text-sm truncate">{recipe.name}</span>
-              {recipe.source && <span className="text-borg-dim text-xs hidden sm:inline">{recipe.source}</span>}
-              <RatingBadge rating={recipe.rating} />
+              {recipe.source && <span className="text-borg-dim text-xs hidden sm:inline truncate max-w-[80px]">{recipe.source}</span>}
             </div>
           )
           : <span className="text-borg-dim text-xs italic flex-1">Not planned</span>
         }
-        <button
-          title="Pick different recipe"
+        <InlineRating recipe={recipe} />
+        <button title="Shuffle"
           onClick={() => {
             const picked = autoPickRecipe(day, slot)
             if (picked) pickMeal.mutate({ date: day.date, slot, recipe_id: picked.id })
@@ -762,11 +831,33 @@ function WeekTab({ recipes }) {
           className="shrink-0 p-1 rounded text-borg-dim hover:text-borg-green hover:bg-borg-panel transition-colors">
           <Shuffle size={11} />
         </button>
-        <button
-          onClick={() => setPicker({ day, slot })}
+        <button onClick={() => setPicker({ day, slot })}
           className="shrink-0 text-xs px-1.5 py-0.5 rounded border border-borg-border text-borg-muted
                      hover:text-borg-text hover:border-borg-green/40 transition-colors">
           Pick
+        </button>
+      </div>
+    )
+  }
+
+  function ExtraLine({ recipeId, index, day }) {
+    const recipe = recipeId ? recipeMap[recipeId] : null
+    return (
+      <div className="flex items-center gap-2 mt-1">
+        <span className="text-xs shrink-0 w-10 text-purple-400">Side</span>
+        {recipe
+          ? (
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              <span className="text-borg-text text-sm truncate">{recipe.name}</span>
+              {recipe.source && <span className="text-borg-dim text-xs hidden sm:inline truncate max-w-[80px]">{recipe.source}</span>}
+            </div>
+          )
+          : <span className="text-borg-dim text-xs italic flex-1">Unknown recipe</span>
+        }
+        <InlineRating recipe={recipe} />
+        <button title="Remove" onClick={() => removeExtra(day, index)}
+          className="shrink-0 p-1 rounded text-borg-dim hover:text-red-400 hover:bg-borg-panel transition-colors">
+          <Trash2 size={11} />
         </button>
       </div>
     )
@@ -891,6 +982,13 @@ function WeekTab({ recipes }) {
 
             <MealLine recipeId={day.adult_recipe_id} slot="adult" day={day} />
             <MealLine recipeId={day.kids_recipe_id}  slot="kids"  day={day} />
+            {(day.extra_ids || []).map((id, i) => (
+              <ExtraLine key={i} recipeId={id} index={i} day={day} />
+            ))}
+            <button onClick={() => setPicker({ day, slot: 'extra' })}
+              className="flex items-center gap-1 text-xs text-borg-dim hover:text-purple-400 mt-1.5 transition-colors">
+              <Plus size={10} /> side
+            </button>
           </div>
         ))}
       </div>
@@ -1062,6 +1160,7 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
                   )}
                   {r.vegetarian && <span className="text-emerald-400">veg</span>}
                   {r.kid_friendly && <span className="text-blue-400">kids</span>}
+                  {r.type === 'side' && <span className="text-purple-400">side</span>}
                   {!r.in_rotation && <span className="text-borg-dim">off-rotation</span>}
                 </div>
 

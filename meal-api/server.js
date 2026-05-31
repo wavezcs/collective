@@ -589,6 +589,7 @@ async function createPlan(weekOf) {
       events_summary: '',
       adult_recipe_id: null,
       kids_recipe_id: null,
+      extra_ids: [],
       notes: null
     }));
 
@@ -674,7 +675,7 @@ async function generatePlan(weekOf) {
 async function clearPlanRecipes(weekOf) {
   const plan = await getPlan(weekOf);
   if (!plan) return null;
-  const days = plan.days.map(d => ({ ...d, adult_recipe_id: null, kids_recipe_id: null }));
+  const days = plan.days.map(d => ({ ...d, adult_recipe_id: null, kids_recipe_id: null, extra_ids: [] }));
   const session = driver.session();
   try {
     await session.run('MATCH (p:MealPlan {week_of: $weekOf}) SET p.days = $days', { weekOf, days: JSON.stringify(days) });
@@ -846,7 +847,7 @@ async function generateGrocery(weekOf) {
   const seenItems = new Set();
 
   const recipeIds = new Set(
-    plan.days.flatMap(d => [d.adult_recipe_id, d.kids_recipe_id]).filter(Boolean)
+    plan.days.flatMap(d => [d.adult_recipe_id, d.kids_recipe_id, ...(d.extra_ids || [])]).filter(Boolean)
   );
   for (const recipeId of recipeIds) {
     const recipe = await getRecipe(recipeId);
