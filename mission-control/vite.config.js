@@ -5,8 +5,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': 'http://collective.csdyn.com:8642',
-      '/projects': 'http://collective.csdyn.com:3002',
+      '/api': 'http://2b.csdyn.com:8642',
+      '/projects': 'http://2b.csdyn.com:3002',
+      '/meals': 'http://2b.csdyn.com:3003',
     }
   }
 })

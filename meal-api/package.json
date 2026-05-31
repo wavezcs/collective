@@ -1,0 +1,9 @@
+{
+  "name": "collective-meal-api",
+  "version": "1.0.0",
+  "description": "Meal planning API for Mission Control",
+  "main": "server.js",
+  "dependencies": {
+    "neo4j-driver": "^5.0.0"
+  }
+}

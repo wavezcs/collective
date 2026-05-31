@@ -133,6 +133,66 @@ async function runOne(args) {
 
 const { execFile } = require('child_process');
 
+async function runMeal(args) {
+  const { MEAL_API_URL = 'http://localhost:3003' } = config.GENERAL;
+  const { operation } = args;
+
+  if (operation === 'list_rotation') {
+    const res = await fetch(`${MEAL_API_URL}/meals/recipes?in_rotation=true`, { signal: AbortSignal.timeout(10_000) });
+    const data = await res.json();
+    const recipes = (data.recipes || []).map(r => `${r.name}${r.total_minutes ? ` (${r.total_minutes}m)` : ''}${r.vegetarian ? ' [veg]' : ''}`);
+    return `In-rotation recipes:\n${recipes.join('\n')}`;
+  }
+
+  if (operation === 'get_plan') {
+    const weekOf = args.week_of || new Date().toISOString().slice(0, 10);
+    const res = await fetch(`${MEAL_API_URL}/meals/plans/${weekOf}`, { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return `No plan found for week of ${weekOf}`;
+    const plan = await res.json();
+    const lines = (plan.days || []).map(d => {
+      const recipeNote = d.selected_recipe_id ? `recipe=${d.selected_recipe_id}` : 'unplanned';
+      return `  ${d.day_name} (${d.date}): ${d.meal_context}, chris_home=${d.chris_home}, ${recipeNote}`;
+    });
+    return `Week of ${plan.week_of} [${plan.status}]:\n${lines.join('\n')}`;
+  }
+
+  if (operation === 'assign_meal') {
+    const { week_of, date, recipe_id } = args;
+    if (!week_of || !date) return 'Error: week_of and date required';
+    const res = await fetch(`${MEAL_API_URL}/meals/plans/${week_of}/days/${date}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ selected_recipe_id: recipe_id || null }),
+      signal: AbortSignal.timeout(10_000)
+    });
+    return res.ok ? `Assigned meal for ${date}` : `Error: ${res.status}`;
+  }
+
+  if (operation === 'rate_recipe') {
+    const { recipe_id, rating } = args;
+    if (!recipe_id || rating === undefined) return 'Error: recipe_id and rating required';
+    const res = await fetch(`${MEAL_API_URL}/meals/recipes/${recipe_id}/rate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating }),
+      signal: AbortSignal.timeout(10_000)
+    });
+    return res.ok ? `Recipe ${recipe_id} rated ${rating}` : `Error: ${res.status}`;
+  }
+
+  if (operation === 'get_grocery') {
+    const weekOf = args.week_of || new Date().toISOString().slice(0, 10);
+    const res = await fetch(`${MEAL_API_URL}/meals/grocery/${weekOf}`, { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return `No grocery list for week of ${weekOf}`;
+    const grocery = await res.json();
+    const wf = (grocery.whole_foods || []).map(i => `  ${i.checked ? '[x]' : '[ ]'} ${i.item}`).join('\n');
+    const tg = (grocery.target || []).map(i => `  ${i.checked ? '[x]' : '[ ]'} ${i.item}`).join('\n');
+    return `Grocery list for ${weekOf}:\n\nWhole Foods:\n${wf}\n\nTarget:\n${tg}`;
+  }
+
+  return `Error: unknown meal operation "${operation}"`;
+}
+
 async function runCalendar({ days = 7 } = {}) {
   return new Promise((resolve) => {
     execFile('python3', ['/usr/local/bin/calendar', String(days)], { timeout: 30000 }, (err, stdout, stderr) => {
@@ -180,6 +240,21 @@ const TOOLS = [
         artifact:       { type: 'string' }
       },
       required: ['operation', 'project_id']
+    }
+  },
+  {
+    name: 'meal',
+    description: "Manage the family meal plan. List rotation recipes, view/assign meals for a week, rate recipes, and get the grocery list.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        operation: { type: 'string', enum: ['list_rotation', 'get_plan', 'assign_meal', 'rate_recipe', 'get_grocery'] },
+        week_of:   { type: 'string', description: 'YYYY-MM-DD Monday' },
+        date:      { type: 'string', description: 'YYYY-MM-DD' },
+        recipe_id: { type: 'string' },
+        rating:    { type: 'number', description: '-1=avoid, 1=liked, 2=loved' }
+      },
+      required: ['operation']
     }
   },
   {
@@ -236,6 +311,7 @@ async function handleRequest(msg) {
       let text;
       if (name === 'brain' || name === 'vinculum') text = await runVinculum(args);
       else if (name === 'projects') text = await runProjects(args);
+      else if (name === 'meal') text = await runMeal(args);
       else if (name === 'calendar') text = await runCalendar(args);
       else if (name === 'one') text = await runOne(args);
       else text = `Error: unknown tool "${name}"`;

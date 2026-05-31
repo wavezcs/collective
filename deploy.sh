@@ -277,6 +277,34 @@ SVCEOF
 fi
 systemctl restart projects-api || true
 
+# meal-api — install deps + systemd service
+cd $REMOTE_DIR/meal-api
+if [[ ! -d node_modules ]]; then
+  echo "[remote] Installing meal-api dependencies..."
+  npm install --silent
+fi
+
+if [[ ! -f /etc/systemd/system/meal-api.service ]]; then
+  cat > /etc/systemd/system/meal-api.service << 'SVCEOF'
+[Unit]
+Description=Collective Meal Planning API
+After=network.target neo4j.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/node $REMOTE_DIR/meal-api/server.js
+WorkingDirectory=$REMOTE_DIR/meal-api
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+  systemctl daemon-reload
+  systemctl enable meal-api
+fi
+systemctl restart meal-api || true
+
 # Vault directory structure
 mkdir -p /opt/vault/{Inbox/.processed,Projects/2B,Projects/ai-trader,Areas/Health,Areas/Finance,Areas/Home,Resources/Recipes,Calendar,Tasks,Archive}
 if [[ ! -f /opt/vault/Tasks/tasks.md ]]; then

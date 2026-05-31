@@ -1,7 +1,7 @@
 import React from 'react'
-import { MessageSquare, FolderKanban, Sparkles } from 'lucide-react'
+import { MessageSquare, FolderKanban, Sparkles, ChefHat } from 'lucide-react'
 
-export default function Sidebar({ view, onChat, onProjects }) {
+export default function Sidebar({ view, onChat, onProjects, onMeals }) {
   const btn = (label, icon, active, onClick) => (
     <button
       onClick={onClick}
@@ -33,6 +33,7 @@ export default function Sidebar({ view, onChat, onProjects }) {
       <nav className="flex flex-col gap-1 p-2 flex-1">
         {btn('Chat', <MessageSquare size={14} />, view === 'chat', onChat)}
         {btn('Projects', <FolderKanban size={14} />, view === 'projects' || view === 'project', onProjects)}
+        {btn('Meals', <ChefHat size={14} />, view === 'meals', onMeals)}
       </nav>
 
       {/* Status */}
