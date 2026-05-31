@@ -40,8 +40,8 @@ const PORT = 3003;
 
 const driver = neo4j.driver(NEO4J_URI, neo4j.auth.basic(NEO4J_USER, NEO4J_PASSWORD));
 
-// Standing staples always added to grocery list
-const STAPLES = {
+// Standing staples — default, overridden by Config node in Neo4j
+const DEFAULT_STAPLES = {
   whole_foods: [
     'Organic milk',
     'Organic eggs',
@@ -246,6 +246,25 @@ function classifyIngredient(item) {
   if (targetPatterns.some(p => p.test(i))) return 'target';
   // Default: pantry-ish items go to Target, produce-sounding items to WF
   return 'target';
+}
+
+// Strip measurements from ingredient strings: "1-2 cloves of garlic" → "Garlic"
+function simplifyIngredient(raw) {
+  let s = String(raw || '').trim();
+  // Remove parenthetical notes: (15 oz), (optional), (about 2 cups)
+  s = s.replace(/\s*\([^)]*\)/g, '');
+  // Remove leading quantities: numbers, fractions, ranges, unicode vulgar fractions
+  s = s.replace(/^[\d¼½¾⅓⅔⅛⅜⅝⅞][\d\s\-–\/\.]*\s+/, '');
+  // Remove measurement units at start
+  const unitRe = /^(?:cups?|tablespoons?|tbsps?|teaspoons?|tsps?|ounces?|oz|pounds?|lbs?|grams?|g|kg|ml|liters?|litres?|cloves?|bunche?s?|cans?|jars?|heads?|sprigs?|pieces?|slices?|packages?|pkgs?|sticks?|pinch(?:es)?|dash(?:es)?|handfuls?|small|medium|large)\s+(?:of\s+)?/i;
+  s = s.replace(unitRe, '');
+  // Remove leading "of"
+  s = s.replace(/^of\s+/i, '');
+  // Remove prep notes after comma: ", chopped", ", diced", ", softened"
+  s = s.replace(/,.*$/, '');
+  s = s.trim();
+  if (s) s = s[0].toUpperCase() + s.slice(1);
+  return s;
 }
 
 async function scrapeRecipe(url) {
@@ -642,13 +661,38 @@ async function generatePlan(weekOf) {
   }
 }
 
-async function approvePlan(weekOf) {
+async function getStaples() {
+  const session = driver.session();
+  try {
+    const r = await session.run('MATCH (c:Config {key: "staples"}) RETURN c.value AS v');
+    if (r.records.length) {
+      try { return JSON.parse(r.records[0].get('v')); } catch {}
+    }
+  } finally {
+    await session.close();
+  }
+  return DEFAULT_STAPLES;
+}
+
+async function updateStaples(staples) {
+  const session = driver.session();
+  try {
+    await session.run(
+      'MERGE (c:Config {key: "staples"}) SET c.value = $v',
+      { v: JSON.stringify(staples) }
+    );
+  } finally {
+    await session.close();
+  }
+}
+
+async function generateGrocery(weekOf) {
   const plan = await getPlan(weekOf);
   if (!plan) return null;
 
-  // Build grocery list from assigned recipes
-  const wfItems = [...STAPLES.whole_foods.map(item => ({ item, checked: false, staple: true }))];
-  const targetItems = [...STAPLES.target.map(item => ({ item, checked: false, staple: true }))];
+  const staples = await getStaples();
+  const wfItems = [...staples.whole_foods.map(item => ({ item, checked: false, staple: true }))];
+  const targetItems = [...staples.target.map(item => ({ item, checked: false, staple: true }))];
 
   const seenItems = new Set();
 
@@ -662,8 +706,10 @@ async function approvePlan(weekOf) {
     if (recipe.cached_wf_items) {
       try {
         const items = JSON.parse(recipe.cached_wf_items);
-        for (const item of items) {
-          const key = item.toLowerCase().trim();
+        for (const raw of items) {
+          const item = simplifyIngredient(raw);
+          if (!item) continue;
+          const key = item.toLowerCase();
           if (!seenItems.has(key)) {
             seenItems.add(key);
             wfItems.push({ item, checked: false, recipe: recipe.name });
@@ -675,8 +721,10 @@ async function approvePlan(weekOf) {
     if (recipe.cached_target_items) {
       try {
         const items = JSON.parse(recipe.cached_target_items);
-        for (const item of items) {
-          const key = item.toLowerCase().trim();
+        for (const raw of items) {
+          const item = simplifyIngredient(raw);
+          if (!item) continue;
+          const key = item.toLowerCase();
           if (!seenItems.has(key)) {
             seenItems.add(key);
             targetItems.push({ item, checked: false, recipe: recipe.name });
@@ -691,11 +739,10 @@ async function approvePlan(weekOf) {
   const session = driver.session();
   try {
     await session.run(
-      `MATCH (p:MealPlan {week_of: $weekOf})
-       SET p.status = 'approved', p.grocery = $grocery`,
+      'MATCH (p:MealPlan {week_of: $weekOf}) SET p.grocery = $grocery',
       { weekOf, grocery: JSON.stringify(grocery) }
     );
-    return { ...plan, status: 'approved', grocery };
+    return { ...plan, grocery };
   } finally {
     await session.close();
   }
@@ -709,21 +756,48 @@ async function getGrocery(weekOf) {
   return plan.grocery || { whole_foods: [], target: [] };
 }
 
-async function toggleGroceryItem(weekOf, store, index, checked) {
+async function updateGroceryItem(weekOf, store, index, data) {
   const plan = await getPlan(weekOf);
   if (!plan) return null;
-
   const grocery = plan.grocery || { whole_foods: [], target: [] };
   const list = grocery[store];
   if (!list || index < 0 || index >= list.length) return null;
-  list[index].checked = checked;
-
+  if ('checked' in data) list[index].checked = data.checked;
+  if ('item' in data) list[index].item = data.item;
   const session = driver.session();
   try {
-    await session.run(
-      'MATCH (p:MealPlan {week_of: $weekOf}) SET p.grocery = $grocery',
-      { weekOf, grocery: JSON.stringify(grocery) }
-    );
+    await session.run('MATCH (p:MealPlan {week_of: $weekOf}) SET p.grocery = $grocery', { weekOf, grocery: JSON.stringify(grocery) });
+    return grocery;
+  } finally {
+    await session.close();
+  }
+}
+
+async function addGroceryItem(weekOf, store, item) {
+  const plan = await getPlan(weekOf);
+  if (!plan) return null;
+  const grocery = plan.grocery || { whole_foods: [], target: [] };
+  if (!grocery[store]) grocery[store] = [];
+  grocery[store].push({ item, checked: false });
+  const session = driver.session();
+  try {
+    await session.run('MATCH (p:MealPlan {week_of: $weekOf}) SET p.grocery = $grocery', { weekOf, grocery: JSON.stringify(grocery) });
+    return grocery;
+  } finally {
+    await session.close();
+  }
+}
+
+async function removeGroceryItem(weekOf, store, index) {
+  const plan = await getPlan(weekOf);
+  if (!plan) return null;
+  const grocery = plan.grocery || { whole_foods: [], target: [] };
+  const list = grocery[store];
+  if (!list || index < 0 || index >= list.length) return null;
+  list.splice(index, 1);
+  const session = driver.session();
+  try {
+    await session.run('MATCH (p:MealPlan {week_of: $weekOf}) SET p.grocery = $grocery', { weekOf, grocery: JSON.stringify(grocery) });
     return grocery;
   } finally {
     await session.close();
@@ -1018,9 +1092,9 @@ const server = http.createServer(async (req, res) => {
         json(res, 200, await generatePlan(id));
         return;
       }
-      // POST /meals/plans/:week/approve
+      // POST /meals/plans/:week/approve (backward compat — now just generates grocery)
       if (req.method === 'POST' && id && sub === 'approve') {
-        const plan = await approvePlan(id);
+        const plan = await generateGrocery(id);
         if (!plan) { json(res, 404, { error: 'Not found' }); return; }
         json(res, 200, plan);
         return;
@@ -1036,12 +1110,49 @@ const server = http.createServer(async (req, res) => {
         json(res, 200, grocery);
         return;
       }
-      // PATCH /meals/grocery/:week/item
+      // POST /meals/grocery/:week/generate
+      if (req.method === 'POST' && id && sub === 'generate') {
+        const plan = await generateGrocery(id);
+        if (!plan) { json(res, 404, { error: 'Not found' }); return; }
+        json(res, 200, plan.grocery || {});
+        return;
+      }
+      // PATCH /meals/grocery/:week/item — update item (checked or name)
       if (req.method === 'PATCH' && id && sub === 'item') {
         const body = await parseBody(req);
-        const grocery = await toggleGroceryItem(id, body.store, body.index, body.checked);
+        const grocery = await updateGroceryItem(id, body.store, body.index, body);
         if (!grocery) { json(res, 404, { error: 'Not found' }); return; }
         json(res, 200, grocery);
+        return;
+      }
+      // POST /meals/grocery/:week/item — add item
+      if (req.method === 'POST' && id && sub === 'item') {
+        const body = await parseBody(req);
+        const grocery = await addGroceryItem(id, body.store, body.item);
+        if (!grocery) { json(res, 404, { error: 'Not found' }); return; }
+        json(res, 200, grocery);
+        return;
+      }
+      // DELETE /meals/grocery/:week/item — remove item
+      if (req.method === 'DELETE' && id && sub === 'item') {
+        const body = await parseBody(req);
+        const grocery = await removeGroceryItem(id, body.store, body.index);
+        if (!grocery) { json(res, 404, { error: 'Not found' }); return; }
+        json(res, 200, grocery);
+        return;
+      }
+    }
+
+    // ── Staples ───────────────────────────────────────────────────────────────
+    if (section === 'staples') {
+      if (req.method === 'GET' && !id) {
+        json(res, 200, await getStaples());
+        return;
+      }
+      if (req.method === 'PATCH' && !id) {
+        const body = await parseBody(req);
+        await updateStaples(body);
+        json(res, 200, { ok: true });
         return;
       }
     }

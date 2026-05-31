@@ -2,8 +2,9 @@ import React, { useState, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   listRecipes, createRecipe, updateRecipe, deleteRecipe, rateRecipe, scrapeRecipe,
-  listPlans, getPlan, createPlan, updateDay, generatePlan, approvePlan,
-  getGrocery, toggleGroceryItem,
+  listPlans, getPlan, createPlan, updateDay, generatePlan,
+  getGrocery, generateGrocery, updateGroceryItem, addGroceryItem, removeGroceryItem,
+  getStaples, updateStaples,
   listPinterestBoards, addPinterestBoard, deletePinterestBoard, scanPinterestBoard
 } from '../api/meals'
 import {
@@ -219,7 +220,7 @@ function TagInput({ value = [], onChange, allTags = [] }) {
       {open && (suggestions.length > 0 || isNew) && (
         <div className="absolute z-20 top-full left-0 right-0 mt-0.5 bg-borg-surface border border-borg-border
                         rounded shadow-lg max-h-36 overflow-y-auto">
-          {suggestions.slice(0, 8).map(t => (
+          {suggestions.map(t => (
             <button key={t} type="button" onMouseDown={() => add(t)}
               className="w-full text-left px-3 py-1.5 text-sm text-borg-text hover:bg-borg-panel transition-colors">
               {t}
@@ -414,10 +415,14 @@ function PinterestModal({ onClose, onImported }) {
     onSuccess: () => refetchBoards(),
   })
 
+  function isPinterestUrl(u) {
+    return u.includes('pinterest.com') || u.includes('pin.it')
+  }
+
   async function handleAdd(e) {
     e.preventDefault()
     const trimmed = url.trim()
-    if (!trimmed || !trimmed.includes('pinterest.com')) return
+    if (!trimmed || !isPinterestUrl(trimmed)) return
     setAdding(true)
     await addBoard.mutateAsync(trimmed)
     setAdding(false)
@@ -470,7 +475,7 @@ function PinterestModal({ onClose, onImported }) {
           />
           <button
             type="submit"
-            disabled={adding || !url.trim().includes('pinterest.com')}
+            disabled={adding || !isPinterestUrl(url.trim())}
             className="flex items-center gap-1.5 text-xs px-3 py-2 rounded border border-borg-green/50
                        text-borg-green hover:bg-borg-panel disabled:opacity-40 transition-colors shrink-0"
           >
@@ -680,11 +685,6 @@ function WeekTab({ recipes }) {
     onSuccess: () => qc.invalidateQueries(['plan', weekOf])
   })
 
-  const approve = useMutation({
-    mutationFn: () => approvePlan(weekOf),
-    onSuccess: () => { qc.invalidateQueries(['plan', weekOf]); qc.invalidateQueries(['grocery', weekOf]) }
-  })
-
   const pickMeal = useMutation({
     mutationFn: ({ date, slot, recipe_id }) => updateDay(weekOf, date, {
       [slot === 'kids' ? 'kids_recipe_id' : 'adult_recipe_id']: recipe_id
@@ -698,7 +698,6 @@ function WeekTab({ recipes }) {
   }
 
   const days = plan?.days || []
-  const approved = plan?.status === 'approved'
 
   function MealLine({ recipeId, slot, day }) {
     const recipe = recipeId ? recipeMap[recipeId] : null
@@ -719,14 +718,12 @@ function WeekTab({ recipes }) {
           )
           : <span className="text-borg-dim text-xs italic flex-1">Not planned</span>
         }
-        {!approved && (
-          <button
-            onClick={() => setPicker({ day, slot })}
-            className="shrink-0 text-xs px-1.5 py-0.5 rounded border border-borg-border text-borg-muted
-                       hover:text-borg-text hover:border-borg-green/40 transition-colors">
-            Pick
-          </button>
-        )}
+        <button
+          onClick={() => setPicker({ day, slot })}
+          className="shrink-0 text-xs px-1.5 py-0.5 rounded border border-borg-border text-borg-muted
+                     hover:text-borg-text hover:border-borg-green/40 transition-colors">
+          Pick
+        </button>
       </div>
     )
   }
@@ -741,9 +738,7 @@ function WeekTab({ recipes }) {
         </button>
         <div className="text-center">
           <div className="text-borg-text text-sm font-medium">Week of {fmtDate(weekOf)}</div>
-          {plan && (
-            <div className={`text-xs ${approved ? 'text-borg-green' : 'text-borg-dim'}`}>{plan.status}</div>
-          )}
+          {plan && <div className="text-xs text-borg-dim">{plan.status}</div>}
         </div>
         <button onClick={() => setWeekOf(addWeeks(weekOf, 1))}
           className="p-1 rounded text-borg-muted hover:text-borg-text hover:bg-borg-panel transition-colors">
@@ -760,26 +755,13 @@ function WeekTab({ recipes }) {
             <Plus size={12} /> Start plan
           </button>
         )}
-        {plan && !approved && (
-          <>
-            <button onClick={() => generate.mutate()} disabled={generate.isPending}
-              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-borg-border
-                         text-borg-muted hover:text-borg-text hover:border-borg-green/40 transition-colors disabled:opacity-50">
-              {generate.isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-              Generate
-            </button>
-            <button onClick={() => approve.mutate()} disabled={approve.isPending}
-              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-borg-green/50
-                         text-borg-green hover:bg-borg-panel transition-colors disabled:opacity-50">
-              {approve.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-              Approve week
-            </button>
-          </>
-        )}
-        {approved && (
-          <div className="text-xs text-borg-green flex items-center gap-1.5">
-            <Check size={12} /> Plan approved — grocery list ready
-          </div>
+        {plan && (
+          <button onClick={() => generate.mutate()} disabled={generate.isPending}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-borg-border
+                       text-borg-muted hover:text-borg-text hover:border-borg-green/40 transition-colors disabled:opacity-50">
+            {generate.isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+            Auto-fill from calendar
+          </button>
         )}
       </div>
 
@@ -1029,96 +1011,275 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
   )
 }
 
+// ─── Clipboard helper ─────────────────────────────────────────────────────────
+
+function copyToClipboard(text) {
+  if (navigator.clipboard) {
+    return navigator.clipboard.writeText(text).catch(() => fallbackClipboard(text))
+  }
+  fallbackClipboard(text)
+  return Promise.resolve()
+}
+
+function fallbackClipboard(text) {
+  const ta = document.createElement('textarea')
+  ta.value = text
+  ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;pointer-events:none'
+  document.body.appendChild(ta)
+  ta.select()
+  document.execCommand('copy')
+  document.body.removeChild(ta)
+}
+
+// ─── Store Column ─────────────────────────────────────────────────────────────
+
+function StoreColumn({ label, items, onToggle, onEditName, onAdd, onRemove, copied, onCopy }) {
+  const [editIdx, setEditIdx] = useState(null)
+  const [editVal, setEditVal] = useState('')
+  const [newItem, setNewItem] = useState('')
+  const done = items.filter(i => i.checked).length
+
+  function startEdit(idx, val) { setEditIdx(idx); setEditVal(val) }
+  function commitEdit() {
+    if (editIdx !== null && editVal.trim()) onEditName(editIdx, editVal.trim())
+    setEditIdx(null)
+  }
+
+  return (
+    <div className="flex-1 min-w-0">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <div className="text-borg-text text-sm font-medium">{label}</div>
+          <div className="text-borg-dim text-xs">{done}/{items.length} checked</div>
+        </div>
+        <button onClick={onCopy}
+          className={`flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors ${
+            copied ? 'border-borg-green text-borg-green' : 'border-borg-border text-borg-muted hover:text-borg-text hover:border-borg-green/40'
+          }`}>
+          {copied ? <Check size={10} /> : <Copy size={10} />}
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+      </div>
+      <div className="space-y-0.5">
+        {items.map((item, idx) => (
+          <div key={idx}
+            className={`group flex items-center gap-2 px-1.5 py-1 rounded transition-colors hover:bg-borg-panel ${item.checked ? 'opacity-50' : ''}`}>
+            <input type="checkbox" checked={!!item.checked}
+              onChange={e => onToggle(idx, e.target.checked)}
+              className="accent-green-500 shrink-0" />
+            {editIdx === idx
+              ? <input autoFocus value={editVal}
+                  onChange={e => setEditVal(e.target.value)}
+                  onBlur={commitEdit}
+                  onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditIdx(null) }}
+                  className="flex-1 bg-borg-panel border border-borg-green/50 rounded px-2 py-0.5 text-sm text-borg-text focus:outline-none" />
+              : <span className={`flex-1 text-sm min-w-0 truncate ${item.checked ? 'line-through text-borg-dim' : 'text-borg-text'}`}>
+                  {item.item}
+                  {item.recipe && !item.staple && <span className="text-borg-dim/60 ml-1 text-xs">({item.recipe})</span>}
+                  {item.staple && <span className="text-borg-dim/40 ml-1 text-xs">staple</span>}
+                </span>
+            }
+            <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+              <button onClick={() => startEdit(idx, item.item)}
+                className="p-0.5 rounded text-borg-dim hover:text-borg-green hover:bg-borg-panel transition-colors">
+                <Pencil size={10} />
+              </button>
+              <button onClick={() => onRemove(idx)}
+                className="p-0.5 rounded text-borg-dim hover:text-red-400 hover:bg-borg-border transition-colors">
+                <Trash2 size={10} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <form onSubmit={e => { e.preventDefault(); const v = newItem.trim(); if (v) { onAdd(v); setNewItem('') } }}
+        className="flex gap-1.5 mt-2">
+        <input value={newItem} onChange={e => setNewItem(e.target.value)} placeholder="Add item…"
+          className="flex-1 bg-borg-panel border border-borg-border rounded px-2 py-1 text-xs text-borg-text
+                     placeholder-borg-dim focus:outline-none focus:border-borg-green/50" />
+        <button type="submit" disabled={!newItem.trim()}
+          className="p-1.5 rounded border border-borg-border text-borg-muted hover:text-borg-green hover:border-borg-green/40 disabled:opacity-30 transition-colors">
+          <Plus size={12} />
+        </button>
+      </form>
+    </div>
+  )
+}
+
+// ─── Staples Editor ───────────────────────────────────────────────────────────
+
+function StaplesEditor({ staples, onSave }) {
+  const [local, setLocal] = useState(() => ({
+    whole_foods: [...(staples?.whole_foods || [])],
+    target: [...(staples?.target || [])]
+  }))
+  const [inputs, setInputs] = useState({ whole_foods: '', target: '' })
+
+  function removeItem(store, idx) {
+    setLocal(l => ({ ...l, [store]: l[store].filter((_, i) => i !== idx) }))
+  }
+  function addItem(store) {
+    const v = inputs[store].trim()
+    if (!v) return
+    setLocal(l => ({ ...l, [store]: [...l[store], v] }))
+    setInputs(i => ({ ...i, [store]: '' }))
+  }
+
+  return (
+    <div className="mt-3 space-y-4 bg-borg-panel border border-borg-border rounded-lg p-3">
+      {[['whole_foods', 'Whole Foods'], ['target', 'Target']].map(([store, label]) => (
+        <div key={store}>
+          <div className="text-xs text-borg-muted mb-1.5">{label} staples</div>
+          <div className="flex flex-wrap gap-1 mb-1.5">
+            {local[store].map((item, idx) => (
+              <span key={idx} className="flex items-center gap-1 bg-borg-border/70 text-borg-text text-xs rounded px-2 py-0.5">
+                {item}
+                <button type="button" onClick={() => removeItem(store, idx)}
+                  className="text-borg-dim hover:text-red-400 leading-none">×</button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-1.5">
+            <input value={inputs[store]} onChange={e => setInputs(i => ({ ...i, [store]: e.target.value }))}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addItem(store) } }}
+              placeholder="Add staple…"
+              className="flex-1 bg-borg-surface border border-borg-border rounded px-2 py-1 text-xs text-borg-text
+                         placeholder-borg-dim focus:outline-none focus:border-borg-green/50" />
+            <button type="button" onClick={() => addItem(store)} disabled={!inputs[store].trim()}
+              className="p-1.5 rounded border border-borg-border text-borg-muted hover:text-borg-green hover:border-borg-green/40 disabled:opacity-30 transition-colors">
+              <Plus size={12} />
+            </button>
+          </div>
+        </div>
+      ))}
+      <button onClick={() => onSave(local)}
+        className="text-xs px-3 py-1.5 rounded border border-borg-green/50 text-borg-green hover:bg-borg-surface transition-colors">
+        Save Staples
+      </button>
+    </div>
+  )
+}
+
 // ─── Grocery Tab ──────────────────────────────────────────────────────────────
 
-function GroceryTab({ weekOf }) {
+function GroceryTab() {
   const qc = useQueryClient()
+  const [weekOf, setWeekOf] = useState(() => toMonday(new Date()))
+  const [copied, setCopied] = useState(null)
+  const [showStaples, setShowStaples] = useState(false)
 
   const { data: grocery, isLoading } = useQuery({
     queryKey: ['grocery', weekOf],
     queryFn: () => getGrocery(weekOf)
   })
 
-  const toggle = useMutation({
-    mutationFn: ({ store, index, checked }) => toggleGroceryItem(weekOf, store, index, checked),
-    onSuccess: (_, vars) => qc.invalidateQueries(['grocery', weekOf])
+  const { data: staples } = useQuery({
+    queryKey: ['staples'],
+    queryFn: getStaples
   })
 
-  function copyList(store) {
+  const generateMut = useMutation({
+    mutationFn: () => generateGrocery(weekOf),
+    onSuccess: () => qc.invalidateQueries(['grocery', weekOf])
+  })
+
+  const updateItem = useMutation({
+    mutationFn: ({ store, index, data }) => updateGroceryItem(weekOf, store, index, data),
+    onSuccess: () => qc.invalidateQueries(['grocery', weekOf])
+  })
+
+  const addItemMut = useMutation({
+    mutationFn: ({ store, item }) => addGroceryItem(weekOf, store, item),
+    onSuccess: () => qc.invalidateQueries(['grocery', weekOf])
+  })
+
+  const removeItemMut = useMutation({
+    mutationFn: ({ store, index }) => removeGroceryItem(weekOf, store, index),
+    onSuccess: () => qc.invalidateQueries(['grocery', weekOf])
+  })
+
+  const updateStaplesMut = useMutation({
+    mutationFn: updateStaples,
+    onSuccess: () => qc.invalidateQueries(['staples'])
+  })
+
+  function doCopy(store) {
     const items = grocery?.[store] || []
     const text = items.map(i => (i.checked ? '✓ ' : '• ') + i.item).join('\n')
-    navigator.clipboard.writeText(text).catch(() => {})
+    copyToClipboard(text).then(() => {
+      setCopied(store)
+      setTimeout(() => setCopied(null), 2000)
+    })
   }
 
-  if (isLoading) return <div className="text-center text-borg-dim py-8">Loading…</div>
-
-  if (!grocery || (!grocery.whole_foods?.length && !grocery.target?.length)) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-borg-dim text-center space-y-3 p-8">
-        <ShoppingCart size={32} className="opacity-20" />
-        <div>
-          <div className="text-sm text-borg-muted">No grocery list yet.</div>
-          <div className="text-xs mt-1">Approve the week plan to generate one.</div>
-        </div>
-      </div>
-    )
-  }
-
-  function StoreColumn({ storeKey, label }) {
-    const items = grocery[storeKey] || []
-    const done  = items.filter(i => i.checked).length
-    return (
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <div className="text-borg-text text-sm font-medium">{label}</div>
-            <div className="text-borg-dim text-xs">{done}/{items.length} checked</div>
-          </div>
-          <button
-            onClick={() => copyList(storeKey)}
-            className="flex items-center gap-1 text-xs text-borg-muted hover:text-borg-text px-2 py-1 rounded
-                       border border-borg-border hover:border-borg-green/40 transition-colors"
-          >
-            <Copy size={10} /> Copy
-          </button>
-        </div>
-        <div className="space-y-1">
-          {items.map((item, idx) => (
-            <label key={idx}
-              className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors
-                hover:bg-borg-panel ${item.checked ? 'opacity-50' : ''}`}
-            >
-              <input
-                type="checkbox"
-                checked={item.checked}
-                onChange={e => toggle.mutate({ store: storeKey, index: idx, checked: e.target.checked })}
-                className="accent-green-500 shrink-0"
-              />
-              <div className="flex-1 min-w-0">
-                <span className={`text-sm ${item.checked ? 'line-through text-borg-dim' : 'text-borg-text'}`}>
-                  {item.item}
-                </span>
-                {item.recipe && !item.staple && (
-                  <span className="text-xs text-borg-dim ml-1">({item.recipe})</span>
-                )}
-                {item.staple && (
-                  <span className="text-xs text-borg-dim/60 ml-1">staple</span>
-                )}
-              </div>
-            </label>
-          ))}
-        </div>
-      </div>
-    )
-  }
+  const hasItems = !!(grocery?.whole_foods?.length || grocery?.target?.length)
 
   return (
-    <div className="flex-1 overflow-y-auto p-4">
-      <div className="flex gap-6">
-        <StoreColumn storeKey="whole_foods" label="Whole Foods" />
-        <div className="w-px bg-borg-border shrink-0" />
-        <StoreColumn storeKey="target" label="Target" />
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-borg-border shrink-0">
+        <div className="flex items-center gap-1">
+          <button onClick={() => setWeekOf(addWeeks(weekOf, -1))}
+            className="p-1 rounded text-borg-muted hover:text-borg-text hover:bg-borg-panel transition-colors">
+            <ChevronLeft size={14} />
+          </button>
+          <span className="text-xs text-borg-text px-1">Week of {fmtDate(weekOf)}</span>
+          <button onClick={() => setWeekOf(addWeeks(weekOf, 1))}
+            className="p-1 rounded text-borg-muted hover:text-borg-text hover:bg-borg-panel transition-colors">
+            <ChevronRight size={14} />
+          </button>
+        </div>
+        <button onClick={() => generateMut.mutate()} disabled={generateMut.isPending}
+          className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-borg-green/50
+                     text-borg-green hover:bg-borg-panel disabled:opacity-50 transition-colors shrink-0">
+          {generateMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+          {hasItems ? 'Update List' : 'Generate List'}
+        </button>
       </div>
+
+      {isLoading
+        ? <div className="text-center text-borg-dim py-8">Loading…</div>
+        : (
+          <div className="flex-1 overflow-y-auto p-4">
+            {!hasItems
+              ? (
+                <div className="flex flex-col items-center justify-center h-40 text-borg-dim text-center space-y-3">
+                  <ShoppingCart size={32} className="opacity-20" />
+                  <div className="text-sm">No grocery list. Click "Generate List" to build from this week's plan.</div>
+                </div>
+              )
+              : (
+                <div className="flex gap-6">
+                  <StoreColumn label="Whole Foods" items={grocery.whole_foods || []}
+                    onToggle={(i, c) => updateItem.mutate({ store: 'whole_foods', index: i, data: { checked: c } })}
+                    onEditName={(i, v) => updateItem.mutate({ store: 'whole_foods', index: i, data: { item: v } })}
+                    onAdd={v => addItemMut.mutate({ store: 'whole_foods', item: v })}
+                    onRemove={i => removeItemMut.mutate({ store: 'whole_foods', index: i })}
+                    copied={copied === 'whole_foods'} onCopy={() => doCopy('whole_foods')} />
+                  <div className="w-px bg-borg-border shrink-0" />
+                  <StoreColumn label="Target" items={grocery.target || []}
+                    onToggle={(i, c) => updateItem.mutate({ store: 'target', index: i, data: { checked: c } })}
+                    onEditName={(i, v) => updateItem.mutate({ store: 'target', index: i, data: { item: v } })}
+                    onAdd={v => addItemMut.mutate({ store: 'target', item: v })}
+                    onRemove={i => removeItemMut.mutate({ store: 'target', index: i })}
+                    copied={copied === 'target'} onCopy={() => doCopy('target')} />
+                </div>
+              )
+            }
+
+            {/* Staples editor */}
+            <div className="mt-6 border-t border-borg-border pt-4">
+              <button onClick={() => setShowStaples(s => !s)}
+                className="flex items-center gap-1.5 text-xs text-borg-muted hover:text-borg-text transition-colors">
+                <span>{showStaples ? '▾' : '▸'}</span> Edit Standing Staples
+              </button>
+              {showStaples && staples && (
+                <StaplesEditor staples={staples} onSave={s => updateStaplesMut.mutate(s)} />
+              )}
+            </div>
+          </div>
+        )
+      }
     </div>
   )
 }
@@ -1127,7 +1288,6 @@ function GroceryTab({ weekOf }) {
 
 export default function MealPlannerView() {
   const [tab, setTab] = useState('week')
-  const [groceryWeek, setGroceryWeek] = useState(() => toMonday(new Date()))
 
   const { data: recipes = [], isLoading: recipesLoading, refetch: refetchRecipes } = useQuery({
     queryKey: ['recipes'],
@@ -1156,17 +1316,7 @@ export default function MealPlannerView() {
       <div className="flex-1 overflow-hidden flex flex-col">
         {tab === 'week'    && <WeekTab recipes={recipes} />}
         {tab === 'catalog' && <CatalogTab recipes={recipes} isLoading={recipesLoading} onRefresh={refetchRecipes} />}
-        {tab === 'grocery' && (
-          <div className="flex flex-col h-full">
-            <div className="px-4 py-2 border-b border-borg-border shrink-0">
-              <div className="text-xs text-borg-dim">
-                Grocery list for week of{' '}
-                <span className="text-borg-text">{fmtDate(groceryWeek)}</span>
-              </div>
-            </div>
-            <GroceryTab weekOf={groceryWeek} />
-          </div>
-        )}
+        {tab === 'grocery' && <GroceryTab />}
       </div>
     </div>
   )

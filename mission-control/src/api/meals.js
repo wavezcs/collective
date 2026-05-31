@@ -136,10 +136,49 @@ export async function scanPinterestBoard(id) {
 
 // ─── Grocery ──────────────────────────────────────────────────────────────────
 
-export async function toggleGroceryItem(weekOf, store, index, checked) {
-  await fetch(`${BASE}/grocery/${weekOf}/item`, {
+export async function generateGrocery(weekOf) {
+  const r = await fetch(`${BASE}/grocery/${weekOf}/generate`, { method: 'POST' })
+  return r.json()
+}
+
+export async function updateGroceryItem(weekOf, store, index, data) {
+  const r = await fetch(`${BASE}/grocery/${weekOf}/item`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ store, index, checked })
+    body: JSON.stringify({ store, index, ...data })
+  })
+  return r.json()
+}
+
+export async function addGroceryItem(weekOf, store, item) {
+  const r = await fetch(`${BASE}/grocery/${weekOf}/item`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ store, item })
+  })
+  return r.json()
+}
+
+export async function removeGroceryItem(weekOf, store, index) {
+  const r = await fetch(`${BASE}/grocery/${weekOf}/item`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ store, index })
+  })
+  return r.json()
+}
+
+// ─── Staples ──────────────────────────────────────────────────────────────────
+
+export async function getStaples() {
+  const r = await fetch(`${BASE}/staples`)
+  return r.json()
+}
+
+export async function updateStaples(staples) {
+  await fetch(`${BASE}/staples`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(staples)
   })
 }
