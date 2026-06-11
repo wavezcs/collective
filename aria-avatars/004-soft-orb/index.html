@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Aria — Soft Orb</title>
+<style>
+  body { background: #0a0a14; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; font-family: monospace; color: #aaa; gap: 32px; }
+  h2 { margin: 0; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #a78bfa; }
+  .sizes { display: flex; align-items: flex-end; gap: 24px; }
+  .label { font-size: 10px; text-align: center; margin-top: 6px; color: #444; }
+  svg { display: block; }
+  .float-wrap { animation: float 3s ease-in-out infinite; display: inline-block; }
+  @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+</style>
+</head>
+<body>
+<h2>Aria — Soft Orb</h2>
+<div class="sizes">
+  <div><div class="float-wrap"><svg id="av16" width="16" height="16" viewBox="0 0 64 64"></svg></div><div class="label">16px</div></div>
+  <div><div class="float-wrap" style="animation-delay:.3s"><svg id="av32" width="32" height="32" viewBox="0 0 64 64"></svg></div><div class="label">32px</div></div>
+  <div><div class="float-wrap" style="animation-delay:.6s"><svg id="av64" width="64" height="64" viewBox="0 0 64 64"></svg></div><div class="label">64px</div></div>
+  <div><div class="float-wrap" style="animation-delay:.1s"><svg id="av128" width="128" height="128" viewBox="0 0 64 64"></svg></div><div class="label">128px</div></div>
+</div>
+<script>
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function mkEl(tag, attrs, parent) {
+  const el = document.createElementNS(SVG_NS, tag);
+  Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+  if (parent) parent.appendChild(el);
+  return el;
+}
+
+function buildOrb(svgEl) {
+  svgEl.style.cursor = 'pointer';
+  const id = svgEl.id;
+
+  const defs = mkEl('defs', {}, svgEl);
+
+  // Main orb gradient
+  const rg = mkEl('radialGradient', { id: `orb-${id}`, cx: '40%', cy: '35%', r: '65%' }, defs);
+  [['#c4b5fd','0%'],['#7c3aed','45%'],['#1e0050','100%']].forEach(([c,o]) => {
+    mkEl('stop', { offset: o, 'stop-color': c }, rg);
+  });
+
+  // Rim light gradient
+  const rimG = mkEl('radialGradient', { id: `rim-${id}`, cx: '50%', cy: '100%', r: '60%' }, defs);
+  [['#a78bfa','0%'],['rgba(167,139,250,0)','100%']].forEach(([c,o]) => {
+    mkEl('stop', { offset: o, 'stop-color': c }, rimG);
+  });
+
+  // Glow filter
+  const glow = mkEl('filter', { id: `glow-${id}`, x: '-30%', y: '-30%', width: '160%', height: '160%' }, defs);
+  mkEl('feGaussianBlur', { stdDeviation: '3', result: 'blur' }, glow);
+  const m = mkEl('feMerge', {}, glow);
+  ['blur','SourceGraphic'].forEach(n => mkEl('feMergeNode', { in: n }, m));
+
+  // Pulse glow circle (behind orb)
+  const pulseGlow = mkEl('circle', { cx: 32, cy: 32, r: 27, fill: 'rgba(167,139,250,0.15)', filter: `url(#glow-${id})` }, svgEl);
+
+  // Main orb
+  mkEl('circle', { cx: 32, cy: 32, r: 24, fill: `url(#orb-${id})` }, svgEl);
+
+  // Rim light
+  mkEl('ellipse', { cx: 32, cy: 50, rx: 18, ry: 8, fill: `url(#rim-${id})`, opacity: 0.5 }, svgEl);
+
+  // Specular highlight
+  mkEl('ellipse', { cx: 26, cy: 24, rx: 7, ry: 5, fill: 'rgba(255,255,255,0.2)', transform: 'rotate(-20 26 24)' }, svgEl);
+  mkEl('ellipse', { cx: 24, cy: 22, rx: 3, ry: 2, fill: 'rgba(255,255,255,0.5)', transform: 'rotate(-20 24 22)' }, svgEl);
+
+  // Eyes — soft glowing dots
+  const eyeL = mkEl('circle', { cx: 25, cy: 33, r: 3.5, fill: '#e9d5ff', filter: `url(#glow-${id})` }, svgEl);
+  const eyeR = mkEl('circle', { cx: 39, cy: 33, r: 3.5, fill: '#e9d5ff', filter: `url(#glow-${id})` }, svgEl);
+
+  // Subtle smile arc
+  const smile = mkEl('path', { d: 'M 27 40 Q 32 44 37 40', stroke: 'rgba(233,213,255,0.6)', 'stroke-width': 1.5, fill: 'none', 'stroke-linecap': 'round' }, svgEl);
+
+  // Hover: brighten
+  svgEl.addEventListener('mouseenter', () => {
+    eyeL.setAttribute('fill', '#fff');
+    eyeR.setAttribute('fill', '#fff');
+    pulseGlow.setAttribute('fill', 'rgba(167,139,250,0.3)');
+    smile.setAttribute('stroke', 'rgba(255,255,255,0.9)');
+  });
+  svgEl.addEventListener('mouseleave', () => {
+    eyeL.setAttribute('fill', '#e9d5ff');
+    eyeR.setAttribute('fill', '#e9d5ff');
+    pulseGlow.setAttribute('fill', 'rgba(167,139,250,0.15)');
+    smile.setAttribute('stroke', 'rgba(233,213,255,0.6)');
+  });
+}
+
+['av16','av32','av64','av128'].forEach(id => buildOrb(document.getElementById(id)));
+</script>
+</body>
+</html>

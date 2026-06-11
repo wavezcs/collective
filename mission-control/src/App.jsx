@@ -4,9 +4,10 @@ import ChatView from './views/ChatView'
 import ProjectsView from './views/ProjectsView'
 import ProjectDetail from './views/ProjectDetail'
 import MealPlannerView from './views/MealPlannerView'
+import GateView from './views/GateView'
 
 export default function App() {
-  const [view, setView]             = useState('chat')      // 'chat' | 'projects' | 'meals'
+  const [view, setView]             = useState('chat')      // 'chat' | 'projects' | 'meals' | 'gate'
   const [activeProject, setProject] = useState(null)
   const [chatSessionId, setChatSession] = useState(null)
 
@@ -20,6 +21,7 @@ export default function App() {
         onChat={() => { setView('chat'); setProject(null) }}
         onProjects={() => { setView('projects'); setProject(null) }}
         onMeals={() => { setView('meals'); setProject(null) }}
+        onGate={() => { setView('gate'); setProject(null) }}
       />
       <main className="flex-1 overflow-hidden">
         {view === 'chat' && (
@@ -33,6 +35,9 @@ export default function App() {
         )}
         {view === 'meals' && (
           <MealPlannerView />
+        )}
+        {view === 'gate' && (
+          <GateView />
         )}
       </main>
     </div>

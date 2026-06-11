@@ -1,7 +1,7 @@
 import React from 'react'
-import { MessageSquare, FolderKanban, Sparkles, ChefHat } from 'lucide-react'
+import { MessageSquare, FolderKanban, Sparkles, ChefHat, DoorOpen } from 'lucide-react'
 
-export default function Sidebar({ view, onChat, onProjects, onMeals }) {
+export default function Sidebar({ view, onChat, onProjects, onMeals, onGate }) {
   const navItem = (label, Icon, active, onClick) => (
     <button
       onClick={onClick}
@@ -34,6 +34,7 @@ export default function Sidebar({ view, onChat, onProjects, onMeals }) {
         {navItem('Chat', MessageSquare, view === 'chat', onChat)}
         {navItem('Research', FolderKanban, view === 'projects' || view === 'project', onProjects)}
         {navItem('Meals', ChefHat, view === 'meals', onMeals)}
+        {navItem('Gate', DoorOpen, view === 'gate', onGate)}
       </nav>
 
       {/* Status */}

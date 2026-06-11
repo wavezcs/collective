@@ -1,0 +1,9 @@
+{
+  "name": "collective-gate-api",
+  "version": "1.0.0",
+  "description": "Gateduino MQTT bridge for Mission Control",
+  "main": "server.js",
+  "dependencies": {
+    "mqtt": "^5.10.0"
+  }
+}

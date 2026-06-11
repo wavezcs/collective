@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Aria — Circuit Head</title>
+<style>
+  body { background: #050d05; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; font-family: monospace; color: #aaa; gap: 32px; }
+  h2 { margin: 0; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #39ff14; }
+  .sizes { display: flex; align-items: flex-end; gap: 24px; }
+  .label { font-size: 10px; text-align: center; margin-top: 6px; color: #333; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+<h2>Aria — Circuit Head</h2>
+<div class="sizes">
+  <div><svg id="av16" width="16" height="16" viewBox="0 0 64 64"></svg><div class="label">16px</div></div>
+  <div><svg id="av32" width="32" height="32" viewBox="0 0 64 64"></svg><div class="label">32px</div></div>
+  <div><svg id="av64" width="64" height="64" viewBox="0 0 64 64"></svg><div class="label">64px</div></div>
+  <div><svg id="av128" width="128" height="128" viewBox="0 0 64 64"></svg><div class="label">128px</div></div>
+</div>
+<script>
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const GREEN = '#39ff14';
+const DKGREEN = '#1a4a1a';
+
+function mkEl(tag, attrs) {
+  const el = document.createElementNS(SVG_NS, tag);
+  Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+  return el;
+}
+
+function buildCircuit(svgEl) {
+  svgEl.style.cursor = 'pointer';
+
+  const defs = document.createElementNS(SVG_NS, 'defs');
+  const glow = mkEl('filter', { id: `glow-${svgEl.id}` });
+  glow.appendChild(mkEl('feGaussianBlur', { stdDeviation: '1.5', result: 'blur' }));
+  const merge = mkEl('feMerge', {});
+  ['blur','SourceGraphic'].forEach(n => merge.appendChild(mkEl('feMergeNode', { in: n })));
+  glow.appendChild(merge);
+  defs.appendChild(glow);
+  svgEl.appendChild(defs);
+
+  // Head outline
+  svgEl.appendChild(mkEl('rect', { x: 12, y: 10, width: 40, height: 44, rx: 4, ry: 4, fill: '#071207', stroke: GREEN, 'stroke-width': 1.5 }));
+
+  // Circuit traces
+  const traces = [
+    'M 12 22 L 8 22 L 8 18',
+    'M 12 34 L 6 34',
+    'M 52 22 L 56 22 L 56 18',
+    'M 52 34 L 58 34',
+    'M 32 10 L 32 6 L 28 6',
+    'M 32 54 L 32 58',
+  ];
+  traces.forEach(d => {
+    svgEl.appendChild(mkEl('path', { d, stroke: GREEN, 'stroke-width': 1, fill: 'none', 'stroke-linecap': 'round', opacity: 0.6 }));
+  });
+
+  // Via dots on traces
+  const vias = [[8,18],[6,34],[56,18],[58,34],[28,6],[32,58]];
+  vias.forEach(([x,y]) => {
+    svgEl.appendChild(mkEl('circle', { cx: x, cy: y, r: 1.5, fill: GREEN, opacity: 0.7 }));
+  });
+
+  // Eyes — square LED style
+  const eyeL = mkEl('rect', { x: 18, y: 24, width: 10, height: 8, rx: 1, fill: GREEN, filter: `url(#glow-${svgEl.id})` });
+  const eyeR = mkEl('rect', { x: 36, y: 24, width: 10, height: 8, rx: 1, fill: GREEN, filter: `url(#glow-${svgEl.id})` });
+  svgEl.appendChild(eyeL);
+  svgEl.appendChild(eyeR);
+
+  // Eye inner (pupil dot)
+  const pupL = mkEl('rect', { x: 21, y: 27, width: 4, height: 2, rx: 1, fill: '#050d05' });
+  const pupR = mkEl('rect', { x: 39, y: 27, width: 4, height: 2, rx: 1, fill: '#050d05' });
+  svgEl.appendChild(pupL);
+  svgEl.appendChild(pupR);
+
+  // Mouth — segment display style
+  const mouthSegs = [
+    mkEl('line', { x1: 22, y1: 40, x2: 30, y2: 40, stroke: GREEN, 'stroke-width': 1.5, 'stroke-linecap': 'round' }),
+    mkEl('line', { x1: 34, y1: 40, x2: 42, y2: 40, stroke: GREEN, 'stroke-width': 1.5, 'stroke-linecap': 'round' }),
+  ];
+  mouthSegs.forEach(s => svgEl.appendChild(s));
+
+  // Internal traces
+  svgEl.appendChild(mkEl('line', { x1: 16, y1: 16, x2: 48, y2: 16, stroke: DKGREEN, 'stroke-width': 1, 'stroke-dasharray': '2 3' }));
+  svgEl.appendChild(mkEl('line', { x1: 16, y1: 48, x2: 48, y2: 48, stroke: DKGREEN, 'stroke-width': 1, 'stroke-dasharray': '2 3' }));
+
+  // Hover — pulse all green elements
+  let hov = false;
+  svgEl.addEventListener('mouseenter', () => {
+    hov = true;
+    [eyeL, eyeR].forEach(e => { e.setAttribute('fill', '#7fff00'); });
+    mouthSegs.forEach(s => {
+      s.setAttribute('stroke', '#7fff00');
+    });
+    svgEl.querySelector('rect').setAttribute('stroke', '#7fff00');
+  });
+  svgEl.addEventListener('mouseleave', () => {
+    hov = false;
+    [eyeL, eyeR].forEach(e => { e.setAttribute('fill', GREEN); });
+    mouthSegs.forEach(s => s.setAttribute('stroke', GREEN));
+    svgEl.querySelector('rect').setAttribute('stroke', GREEN);
+  });
+}
+
+['av16','av32','av64','av128'].forEach(id => buildCircuit(document.getElementById(id)));
+</script>
+</body>
+</html>

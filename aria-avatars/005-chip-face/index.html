@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Aria — Chip Face</title>
+<style>
+  body { background: #0e0e0e; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; font-family: monospace; color: #aaa; gap: 32px; }
+  h2 { margin: 0; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #f59e0b; }
+  .sizes { display: flex; align-items: flex-end; gap: 24px; }
+  .label { font-size: 10px; text-align: center; margin-top: 6px; color: #444; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+<h2>Aria — Chip Face</h2>
+<div class="sizes">
+  <div><svg id="av16" width="16" height="16" viewBox="0 0 64 64"></svg><div class="label">16px</div></div>
+  <div><svg id="av32" width="32" height="32" viewBox="0 0 64 64"></svg><div class="label">32px</div></div>
+  <div><svg id="av64" width="64" height="64" viewBox="0 0 64 64"></svg><div class="label">64px</div></div>
+  <div><svg id="av128" width="128" height="128" viewBox="0 0 64 64"></svg><div class="label">128px</div></div>
+</div>
+<script>
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const AMBER = '#f59e0b';
+const AMBERDK = '#78350f';
+
+function mkEl(tag, attrs, parent) {
+  const el = document.createElementNS(SVG_NS, tag);
+  Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+  if (parent) parent.appendChild(el);
+  return el;
+}
+
+function buildChip(svgEl) {
+  svgEl.style.cursor = 'pointer';
+  const id = svgEl.id;
+
+  const defs = mkEl('defs', {}, svgEl);
+  const glow = mkEl('filter', { id: `glow-${id}` }, defs);
+  mkEl('feGaussianBlur', { stdDeviation: '1.5', result: 'blur' }, glow);
+  const m = mkEl('feMerge', {}, glow);
+  ['blur','SourceGraphic'].forEach(n => mkEl('feMergeNode', { in: n }, m));
+
+  // Chip body
+  const body = mkEl('rect', { x: 10, y: 10, width: 44, height: 44, rx: 3, ry: 3, fill: '#1a1400', stroke: AMBER, 'stroke-width': 1.5 }, svgEl);
+
+  // Corner notch (top left) — classic IC notch
+  mkEl('path', { d: 'M 10 18 A 8 8 0 0 1 18 10', fill: 'none', stroke: AMBER, 'stroke-width': 1.5 }, svgEl);
+
+  // Pin grid — left side
+  [16, 22, 28, 34, 40, 46].forEach((y, i) => {
+    mkEl('rect', { x: 6, y: y-1.5, width: 4, height: 3, rx: 0.5, fill: '#555' }, svgEl);
+    mkEl('line', { x1: 10, y1: y, x2: 14, y2: y, stroke: AMBERDK, 'stroke-width': 1 }, svgEl);
+  });
+
+  // Pin grid — right side
+  [16, 22, 28, 34, 40, 46].forEach((y) => {
+    mkEl('rect', { x: 54, y: y-1.5, width: 4, height: 3, rx: 0.5, fill: '#555' }, svgEl);
+    mkEl('line', { x1: 50, y1: y, x2: 54, y2: y, stroke: AMBERDK, 'stroke-width': 1 }, svgEl);
+  });
+
+  // Pin grid — top
+  [22, 32, 42].forEach(x => {
+    mkEl('rect', { x: x-1.5, y: 6, width: 3, height: 4, rx: 0.5, fill: '#555' }, svgEl);
+    mkEl('line', { x1: x, y1: 10, x2: x, y2: 14, stroke: AMBERDK, 'stroke-width': 1 }, svgEl);
+  });
+
+  // Pin grid — bottom
+  [22, 32, 42].forEach(x => {
+    mkEl('rect', { x: x-1.5, y: 54, width: 3, height: 4, rx: 0.5, fill: '#555' }, svgEl);
+    mkEl('line', { x1: x, y1: 50, x2: x, y2: 54, stroke: AMBERDK, 'stroke-width': 1 }, svgEl);
+  });
+
+  // Internal circuit grid background
+  for (let gx = 14; gx <= 50; gx += 6) {
+    mkEl('line', { x1: gx, y1: 14, x2: gx, y2: 50, stroke: '#1f1400', 'stroke-width': 0.5 }, svgEl);
+  }
+  for (let gy = 14; gy <= 50; gy += 6) {
+    mkEl('line', { x1: 14, y1: gy, x2: 50, y2: gy, stroke: '#1f1400', 'stroke-width': 0.5 }, svgEl);
+  }
+
+  // Eyes — bright LED squares
+  const eyeL = mkEl('rect', { x: 17, y: 23, width: 10, height: 8, rx: 1.5, fill: AMBER, filter: `url(#glow-${id})` }, svgEl);
+  const eyeR = mkEl('rect', { x: 37, y: 23, width: 10, height: 8, rx: 1.5, fill: AMBER, filter: `url(#glow-${id})` }, svgEl);
+
+  // Eye pupils
+  mkEl('rect', { x: 20, y: 26, width: 4, height: 2, rx: 0.5, fill: '#0e0e0e' }, svgEl);
+  mkEl('rect', { x: 40, y: 26, width: 4, height: 2, rx: 0.5, fill: '#0e0e0e' }, svgEl);
+
+  // Mouth — 7-segment style (shows "A" like Aria)
+  // Top bar
+  mkEl('line', { x1: 26, y1: 37, x2: 38, y2: 37, stroke: AMBER, 'stroke-width': 1.5, 'stroke-linecap': 'round' }, svgEl);
+  // Mid bar
+  mkEl('line', { x1: 26, y1: 42, x2: 38, y2: 42, stroke: AMBER, 'stroke-width': 1.5, 'stroke-linecap': 'round' }, svgEl);
+  // Left top
+  mkEl('line', { x1: 26, y1: 37, x2: 26, y2: 42, stroke: AMBER, 'stroke-width': 1.5, 'stroke-linecap': 'round' }, svgEl);
+  // Right top
+  mkEl('line', { x1: 38, y1: 37, x2: 38, y2: 42, stroke: AMBER, 'stroke-width': 1.5, 'stroke-linecap': 'round' }, svgEl);
+  // Left bottom
+  mkEl('line', { x1: 26, y1: 42, x2: 26, y2: 47, stroke: AMBER, 'stroke-width': 1.5, 'stroke-linecap': 'round' }, svgEl);
+  // Right bottom
+  mkEl('line', { x1: 38, y1: 42, x2: 38, y2: 47, stroke: AMBER, 'stroke-width': 1.5, 'stroke-linecap': 'round' }, svgEl);
+
+  // Label "ARIA" text on body
+  const label = mkEl('text', { x: 32, y: 20, 'text-anchor': 'middle', fill: AMBERDK, 'font-size': '4', 'font-family': 'monospace', 'letter-spacing': '1' }, svgEl);
+  label.textContent = 'ARIA-1';
+
+  // Hover
+  svgEl.addEventListener('mouseenter', () => {
+    eyeL.setAttribute('fill', '#fde68a');
+    eyeR.setAttribute('fill', '#fde68a');
+    body.setAttribute('stroke', '#fde68a');
+    label.setAttribute('fill', AMBER);
+  });
+  svgEl.addEventListener('mouseleave', () => {
+    eyeL.setAttribute('fill', AMBER);
+    eyeR.setAttribute('fill', AMBER);
+    body.setAttribute('stroke', AMBER);
+    label.setAttribute('fill', AMBERDK);
+  });
+}
+
+['av16','av32','av64','av128'].forEach(id => buildChip(document.getElementById(id)));
+</script>
+</body>
+</html>

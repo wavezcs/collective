@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Aria — Friendly Robot</title>
+<style>
+  body { background: #111; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; font-family: monospace; color: #aaa; gap: 32px; }
+  h2 { margin: 0; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #4ecdc4; }
+  .sizes { display: flex; align-items: flex-end; gap: 24px; }
+  .label { font-size: 10px; text-align: center; margin-top: 6px; color: #555; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+<h2>Aria — Friendly Robot</h2>
+<div class="sizes">
+  <div><svg id="av16" width="16" height="16" viewBox="0 0 64 64"></svg><div class="label">16px</div></div>
+  <div><svg id="av32" width="32" height="32" viewBox="0 0 64 64"></svg><div class="label">32px</div></div>
+  <div><svg id="av64" width="64" height="64" viewBox="0 0 64 64"></svg><div class="label">64px</div></div>
+  <div><svg id="av128" width="128" height="128" viewBox="0 0 64 64"></svg><div class="label">128px</div></div>
+</div>
+
+<script>
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function buildRobot(svgEl) {
+  svgEl.style.cursor = 'pointer';
+  svgEl.setAttribute('xmlns', SVG_NS);
+
+  const defs = document.createElementNS(SVG_NS, 'defs');
+
+  // Face gradient
+  const faceGrad = document.createElementNS(SVG_NS, 'radialGradient');
+  faceGrad.setAttribute('id', `fg-${svgEl.id}`);
+  faceGrad.setAttribute('cx', '50%'); faceGrad.setAttribute('cy', '40%');
+  faceGrad.setAttribute('r', '60%');
+  const fgStops = [['#1a3a4a', '0%'], ['#0d1e26', '100%']];
+  fgStops.forEach(([color, offset]) => {
+    const s = document.createElementNS(SVG_NS, 'stop');
+    s.setAttribute('offset', offset); s.setAttribute('stop-color', color);
+    faceGrad.appendChild(s);
+  });
+  defs.appendChild(faceGrad);
+
+  // Glow filter
+  const glow = document.createElementNS(SVG_NS, 'filter');
+  glow.setAttribute('id', `glow-${svgEl.id}`);
+  const fe = document.createElementNS(SVG_NS, 'feGaussianBlur');
+  fe.setAttribute('stdDeviation', '1.5'); fe.setAttribute('result', 'blur');
+  const feMerge = document.createElementNS(SVG_NS, 'feMerge');
+  const n1 = document.createElementNS(SVG_NS, 'feMergeNode'); n1.setAttribute('in', 'blur');
+  const n2 = document.createElementNS(SVG_NS, 'feMergeNode'); n2.setAttribute('in', 'SourceGraphic');
+  feMerge.appendChild(n1); feMerge.appendChild(n2);
+  glow.appendChild(fe); glow.appendChild(feMerge);
+  defs.appendChild(glow);
+  svgEl.appendChild(defs);
+
+  // Antenna
+  const ant = document.createElementNS(SVG_NS, 'line');
+  ant.setAttribute('x1', '32'); ant.setAttribute('y1', '10');
+  ant.setAttribute('x2', '32'); ant.setAttribute('y2', '18');
+  ant.setAttribute('stroke', '#4ecdc4'); ant.setAttribute('stroke-width', '2');
+  ant.setAttribute('stroke-linecap', 'round');
+  svgEl.appendChild(ant);
+
+  const antTop = document.createElementNS(SVG_NS, 'circle');
+  antTop.setAttribute('cx', '32'); antTop.setAttribute('cy', '9');
+  antTop.setAttribute('r', '2.5');
+  antTop.setAttribute('fill', '#4ecdc4');
+  antTop.setAttribute('filter', `url(#glow-${svgEl.id})`);
+  svgEl.appendChild(antTop);
+
+  // Head body
+  const head = document.createElementNS(SVG_NS, 'rect');
+  head.setAttribute('x', '14'); head.setAttribute('y', '18');
+  head.setAttribute('width', '36'); head.setAttribute('height', '32');
+  head.setAttribute('rx', '8'); head.setAttribute('ry', '8');
+  head.setAttribute('fill', `url(#fg-${svgEl.id})`);
+  head.setAttribute('stroke', '#2a7a8a'); head.setAttribute('stroke-width', '1.5');
+  svgEl.appendChild(head);
+
+  // Eyes (left)
+  const eyeL = document.createElementNS(SVG_NS, 'ellipse');
+  eyeL.setAttribute('cx', '25'); eyeL.setAttribute('cy', '31');
+  eyeL.setAttribute('rx', '5'); eyeL.setAttribute('ry', '5');
+  eyeL.setAttribute('fill', '#4ecdc4');
+  eyeL.setAttribute('filter', `url(#glow-${svgEl.id})`);
+  svgEl.appendChild(eyeL);
+
+  const pupilL = document.createElementNS(SVG_NS, 'circle');
+  pupilL.setAttribute('cx', '25'); pupilL.setAttribute('cy', '31');
+  pupilL.setAttribute('r', '2.5'); pupilL.setAttribute('fill', '#001a20');
+  svgEl.appendChild(pupilL);
+
+  // Eyes (right)
+  const eyeR = document.createElementNS(SVG_NS, 'ellipse');
+  eyeR.setAttribute('cx', '39'); eyeR.setAttribute('cy', '31');
+  eyeR.setAttribute('rx', '5'); eyeR.setAttribute('ry', '5');
+  eyeR.setAttribute('fill', '#4ecdc4');
+  eyeR.setAttribute('filter', `url(#glow-${svgEl.id})`);
+  svgEl.appendChild(eyeR);
+
+  const pupilR = document.createElementNS(SVG_NS, 'circle');
+  pupilR.setAttribute('cx', '39'); pupilR.setAttribute('cy', '31');
+  pupilR.setAttribute('r', '2.5'); pupilR.setAttribute('fill', '#001a20');
+  svgEl.appendChild(pupilR);
+
+  // Smile
+  const smile = document.createElementNS(SVG_NS, 'path');
+  smile.setAttribute('d', 'M 24 40 Q 32 46 40 40');
+  smile.setAttribute('stroke', '#4ecdc4'); smile.setAttribute('stroke-width', '2');
+  smile.setAttribute('fill', 'none'); smile.setAttribute('stroke-linecap', 'round');
+  svgEl.appendChild(smile);
+
+  // Ear panels
+  const earL = document.createElementNS(SVG_NS, 'rect');
+  earL.setAttribute('x', '9'); earL.setAttribute('y', '24');
+  earL.setAttribute('width', '5'); earL.setAttribute('height', '16');
+  earL.setAttribute('rx', '2'); earL.setAttribute('fill', '#1e4a56');
+  earL.setAttribute('stroke', '#2a7a8a'); earL.setAttribute('stroke-width', '1');
+  svgEl.appendChild(earL);
+
+  const earR = document.createElementNS(SVG_NS, 'rect');
+  earR.setAttribute('x', '50'); earR.setAttribute('y', '24');
+  earR.setAttribute('width', '5'); earR.setAttribute('height', '16');
+  earR.setAttribute('rx', '2'); earR.setAttribute('fill', '#1e4a56');
+  earR.setAttribute('stroke', '#2a7a8a'); earR.setAttribute('stroke-width', '1');
+  svgEl.appendChild(earR);
+
+  // Neck
+  const neck = document.createElementNS(SVG_NS, 'rect');
+  neck.setAttribute('x', '27'); neck.setAttribute('y', '50');
+  neck.setAttribute('width', '10'); neck.setAttribute('height', '6');
+  neck.setAttribute('rx', '2'); neck.setAttribute('fill', '#1e4a56');
+  svgEl.appendChild(neck);
+
+  // Pupils that track on hover
+  let hovered = false;
+  svgEl.addEventListener('mouseenter', () => {
+    hovered = true;
+    pupilL.setAttribute('cx', '26'); pupilL.setAttribute('cy', '30');
+    pupilR.setAttribute('cx', '40'); pupilR.setAttribute('cy', '30');
+    antTop.setAttribute('fill', '#7fffd4');
+    smile.setAttribute('d', 'M 23 40 Q 32 48 41 40');
+  });
+  svgEl.addEventListener('mouseleave', () => {
+    hovered = false;
+    pupilL.setAttribute('cx', '25'); pupilL.setAttribute('cy', '31');
+    pupilR.setAttribute('cx', '39'); pupilR.setAttribute('cy', '31');
+    antTop.setAttribute('fill', '#4ecdc4');
+    smile.setAttribute('d', 'M 24 40 Q 32 46 40 40');
+  });
+}
+
+['av16','av32','av64','av128'].forEach(id => {
+  const el = document.getElementById(id);
+  buildRobot(el);
+});
+</script>
+</body>
+</html>

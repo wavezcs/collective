@@ -305,6 +305,34 @@ SVCEOF
 fi
 systemctl restart meal-api || true
 
+# gate-api — install deps + systemd service
+cd $REMOTE_DIR/gate-api
+if [[ ! -d node_modules ]]; then
+  echo "[remote] Installing gate-api dependencies..."
+  npm install --silent
+fi
+
+if [[ ! -f /etc/systemd/system/gate-api.service ]]; then
+  cat > /etc/systemd/system/gate-api.service << 'SVCEOF'
+[Unit]
+Description=Collective Gateduino MQTT Bridge
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/node $REMOTE_DIR/gate-api/server.js
+WorkingDirectory=$REMOTE_DIR/gate-api
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+  systemctl daemon-reload
+  systemctl enable gate-api
+fi
+systemctl restart gate-api || true
+
 # Vault directory structure
 mkdir -p /opt/vault/{Inbox/.processed,Projects/2B,Projects/ai-trader,Areas/Health,Areas/Finance,Areas/Home,Resources/Recipes,Calendar,Tasks,Archive}
 if [[ ! -f /opt/vault/Tasks/tasks.md ]]; then
@@ -327,7 +355,8 @@ cp $REMOTE_DIR/agents/scripts/calendar.py /usr/local/bin/calendar
 chmod +x /usr/local/bin/calendar
 echo "[remote] Calendar script installed"
 
-# Nginx reload (no mission-control vhost — port 80 removed)
+# Nginx — install mission-control vhost from repo + reload
+cp $REMOTE_DIR/nginx/mission-control.conf /etc/nginx/sites-enabled/mission-control.conf
 nginx -t 2>/dev/null && systemctl reload nginx || true
 
 # Clear incomplete hermes sessions before restart to prevent replay loops

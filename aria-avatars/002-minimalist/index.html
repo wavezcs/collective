@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Aria — Minimalist Assistant</title>
+<style>
+  body { background: #111; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; font-family: monospace; color: #aaa; gap: 32px; }
+  h2 { margin: 0; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #e0e0e0; }
+  .sizes { display: flex; align-items: flex-end; gap: 24px; }
+  .label { font-size: 10px; text-align: center; margin-top: 6px; color: #555; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+<h2>Aria — Minimalist Assistant</h2>
+<div class="sizes">
+  <div><svg id="av16" width="16" height="16" viewBox="0 0 64 64"></svg><div class="label">16px</div></div>
+  <div><svg id="av32" width="32" height="32" viewBox="0 0 64 64"></svg><div class="label">32px</div></div>
+  <div><svg id="av64" width="64" height="64" viewBox="0 0 64 64"></svg><div class="label">64px</div></div>
+  <div><svg id="av128" width="128" height="128" viewBox="0 0 64 64"></svg><div class="label">128px</div></div>
+</div>
+<script>
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function buildMinimalist(svgEl) {
+  svgEl.style.cursor = 'pointer';
+
+  const defs = document.createElementNS(SVG_NS, 'defs');
+  const glow = document.createElementNS(SVG_NS, 'filter');
+  glow.setAttribute('id', `glow-${svgEl.id}`);
+  const fe = document.createElementNS(SVG_NS, 'feGaussianBlur');
+  fe.setAttribute('stdDeviation', '2'); fe.setAttribute('result', 'blur');
+  const feMerge = document.createElementNS(SVG_NS, 'feMerge');
+  ['blur','SourceGraphic'].forEach(n => {
+    const mn = document.createElementNS(SVG_NS, 'feMergeNode'); mn.setAttribute('in', n); feMerge.appendChild(mn);
+  });
+  glow.appendChild(fe); glow.appendChild(feMerge);
+  defs.appendChild(glow);
+  svgEl.appendChild(defs);
+
+  // Outer hexagon-ish shape (octagon)
+  const head = document.createElementNS(SVG_NS, 'polygon');
+  const cx = 32, cy = 34, r = 24;
+  const pts = Array.from({length: 8}, (_,i) => {
+    const a = (Math.PI / 4) * i - Math.PI/8;
+    return `${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`;
+  }).join(' ');
+  head.setAttribute('points', pts);
+  head.setAttribute('fill', '#1a1a1a');
+  head.setAttribute('stroke', '#e0e0e0'); head.setAttribute('stroke-width', '1.5');
+  svgEl.appendChild(head);
+
+  // Accent line top
+  const topBar = document.createElementNS(SVG_NS, 'line');
+  topBar.setAttribute('x1', '22'); topBar.setAttribute('y1', '12');
+  topBar.setAttribute('x2', '42'); topBar.setAttribute('y2', '12');
+  topBar.setAttribute('stroke', '#ffffff'); topBar.setAttribute('stroke-width', '2');
+  topBar.setAttribute('stroke-linecap', 'round');
+  svgEl.appendChild(topBar);
+
+  // Single eye bar (LED strip style)
+  const eyeBar = document.createElementNS(SVG_NS, 'rect');
+  eyeBar.setAttribute('x', '20'); eyeBar.setAttribute('y', '29');
+  eyeBar.setAttribute('width', '24'); eyeBar.setAttribute('height', '4');
+  eyeBar.setAttribute('rx', '2');
+  eyeBar.setAttribute('fill', '#ffffff');
+  eyeBar.setAttribute('filter', `url(#glow-${svgEl.id})`);
+  svgEl.appendChild(eyeBar);
+
+  // Mouth line
+  const mouth = document.createElementNS(SVG_NS, 'line');
+  mouth.setAttribute('x1', '26'); mouth.setAttribute('y1', '40');
+  mouth.setAttribute('x2', '38'); mouth.setAttribute('y2', '40');
+  mouth.setAttribute('stroke', '#555'); mouth.setAttribute('stroke-width', '1.5');
+  mouth.setAttribute('stroke-linecap', 'round');
+  svgEl.appendChild(mouth);
+
+  // Center dot
+  const dot = document.createElementNS(SVG_NS, 'circle');
+  dot.setAttribute('cx', '32'); dot.setAttribute('cy', '31');
+  dot.setAttribute('r', '1.5'); dot.setAttribute('fill', '#111');
+  svgEl.appendChild(dot);
+
+  // Hover: eye bar becomes accent colored, mouth shifts up
+  svgEl.addEventListener('mouseenter', () => {
+    eyeBar.setAttribute('fill', '#00e5ff');
+    mouth.setAttribute('y1', '39'); mouth.setAttribute('y2', '39');
+    mouth.setAttribute('stroke', '#00e5ff');
+    topBar.setAttribute('stroke', '#00e5ff');
+  });
+  svgEl.addEventListener('mouseleave', () => {
+    eyeBar.setAttribute('fill', '#ffffff');
+    mouth.setAttribute('y1', '40'); mouth.setAttribute('y2', '40');
+    mouth.setAttribute('stroke', '#555');
+    topBar.setAttribute('stroke', '#ffffff');
+  });
+}
+
+['av16','av32','av64','av128'].forEach(id => buildMinimalist(document.getElementById(id)));
+</script>
+</body>
+</html>

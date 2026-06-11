@@ -8,3 +8,4 @@ memory/
 logs/
 *.log
 .DS_Store
+gate6/
