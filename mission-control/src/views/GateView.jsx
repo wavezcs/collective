@@ -51,7 +51,7 @@ function RssiBar({ rssi, areaRssi = -87, triggerRssi = -76 }) {
         <span className="absolute -inset-y-0.5 w-px bg-borg-warning/60" style={{ left: `${pctOf(areaRssi)}%` }} title={`approach ≥ ${areaRssi} dBm`} />
         <span className="absolute -inset-y-0.5 w-px bg-borg-accent/60" style={{ left: `${pctOf(triggerRssi)}%` }} title={`trigger ≥ ${triggerRssi} dBm`} />
       </div>
-      <span className="text-xs text-borg-muted tabular-nums w-14 text-right">{rssi} dBm</span>
+      <span className="text-xs text-borg-muted tabular-nums w-14 text-right whitespace-nowrap shrink-0">{Math.round(rssi)} dBm</span>
     </div>
   )
 }
