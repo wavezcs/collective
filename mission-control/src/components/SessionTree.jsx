@@ -28,7 +28,7 @@ function SessionNode({ session, depth = 0 }) {
         <GitBranch size={10} className="text-borg-dim mt-0.5 shrink-0" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-borg-green font-medium">{label}</span>
+            <span className="text-borg-accent font-medium">{label}</span>
             {session.title && (
               <span className="text-borg-muted truncate">{session.title}</span>
             )}

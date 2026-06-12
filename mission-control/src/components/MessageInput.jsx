@@ -29,7 +29,7 @@ export default function MessageInput({ onSend, disabled, placeholder = 'Message 
   return (
     <div className="px-4 py-3 border-t border-borg-border bg-borg-surface">
       <div className="flex items-end gap-2 bg-borg-panel rounded-xl border border-borg-border px-3 py-2
-                      focus-within:border-borg-green/40 transition-colors">
+                      focus-within:border-borg-accent/40 transition-colors">
         <textarea
           ref={ref}
           rows={1}
@@ -44,8 +44,8 @@ export default function MessageInput({ onSend, disabled, placeholder = 'Message 
         <button
           onClick={submit}
           disabled={disabled}
-          className="shrink-0 p-1.5 rounded-lg bg-borg-green/10 text-borg-green
-                     hover:bg-borg-green/20 disabled:opacity-30 disabled:cursor-not-allowed
+          className="shrink-0 p-1.5 rounded-lg bg-borg-accent/10 text-borg-accent
+                     hover:bg-borg-accent/20 disabled:opacity-30 disabled:cursor-not-allowed
                      transition-colors"
         >
           <Send size={13} />

@@ -11,7 +11,7 @@ export default function Sidebar({ view, onChat, onProjects, onMeals, onGate }) {
           : 'text-borg-muted hover:text-borg-text hover:bg-borg-panel/60'
         }`}
     >
-      <Icon size={15} className={active ? 'text-borg-green' : 'text-borg-dim'} />
+      <Icon size={15} className={active ? 'text-borg-accent' : 'text-borg-dim'} />
       {label}
     </button>
   )
@@ -21,12 +21,12 @@ export default function Sidebar({ view, onChat, onProjects, onMeals, onGate }) {
       {/* Logo */}
       <div className="px-4 py-5">
         <div className="flex items-center gap-2.5">
-          <div className="w-6 h-6 rounded-md bg-borg-green/15 flex items-center justify-center">
-            <Sparkles size={13} className="text-borg-green" />
+          <div className="w-6 h-6 rounded-md bg-borg-accent/15 flex items-center justify-center">
+            <Sparkles size={13} className="text-borg-accent" />
           </div>
           <span className="text-borg-text font-semibold text-sm tracking-tight">2B</span>
         </div>
-        <div className="text-borg-dim text-xs mt-1 ml-8.5">second brain</div>
+        <div className="text-borg-dim text-xs mt-1 ml-[34px]">second brain</div>
       </div>
 
       {/* Nav */}
@@ -40,7 +40,7 @@ export default function Sidebar({ view, onChat, onProjects, onMeals, onGate }) {
       {/* Status */}
       <div className="px-4 py-4 border-t border-borg-border">
         <div className="flex items-center gap-2 text-xs text-borg-muted">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+          <span className="w-1.5 h-1.5 rounded-full bg-borg-success shrink-0" />
           Aria online
         </div>
       </div>

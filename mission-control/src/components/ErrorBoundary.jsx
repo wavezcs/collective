@@ -28,7 +28,7 @@ export default class ErrorBoundary extends React.Component {
             </pre>
             <button
               onClick={() => this.setState({ error: null })}
-              className="text-xs text-borg-green border border-borg-border px-3 py-1 rounded hover:border-borg-green/50"
+              className="text-xs text-borg-accent border border-borg-border px-3 py-1 rounded hover:border-borg-accent/50"
             >
               Dismiss
             </button>

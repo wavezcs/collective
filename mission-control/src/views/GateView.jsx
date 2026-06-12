@@ -39,14 +39,17 @@ function RssiBar({ rssi, areaRssi = -87, triggerRssi = -76 }) {
     return <span className="text-borg-dim text-xs">no signal</span>
   }
   // Map -100..-40 dBm to 0..100%
-  const pct = Math.max(0, Math.min(100, ((rssi + 100) / 60) * 100))
-  const color = rssi >= triggerRssi ? 'bg-borg-green'
-              : rssi >= areaRssi    ? 'bg-yellow-400'
+  const pctOf = v => Math.max(0, Math.min(100, ((v + 100) / 60) * 100))
+  const pct = pctOf(rssi)
+  const color = rssi >= triggerRssi ? 'bg-borg-accent'
+              : rssi >= areaRssi    ? 'bg-borg-warning'
               : 'bg-borg-dim'
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 rounded-full bg-borg-panel overflow-hidden">
-        <div className={`h-full rounded-full transition-all duration-500 ${color}`} style={{ width: `${pct}%` }} />
+      <div className="relative flex-1 h-1.5 rounded-full bg-borg-panel">
+        <div className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ${color}`} style={{ width: `${pct}%` }} />
+        <span className="absolute -inset-y-0.5 w-px bg-borg-warning/60" style={{ left: `${pctOf(areaRssi)}%` }} title={`approach ≥ ${areaRssi} dBm`} />
+        <span className="absolute -inset-y-0.5 w-px bg-borg-accent/60" style={{ left: `${pctOf(triggerRssi)}%` }} title={`trigger ≥ ${triggerRssi} dBm`} />
       </div>
       <span className="text-xs text-borg-muted tabular-nums w-14 text-right">{rssi} dBm</span>
     </div>
@@ -62,11 +65,11 @@ function NodeCard({ id, node }) {
     <div className="rounded-lg border border-borg-border bg-borg-surface p-4">
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
-          <Radio size={14} className={node.online ? 'text-borg-green' : 'text-borg-dim'} />
+          <Radio size={14} className={node.online ? 'text-borg-accent' : 'text-borg-dim'} />
           <span className="text-sm font-medium text-borg-text">{meta.label}</span>
         </div>
-        <span className={`flex items-center gap-1.5 text-xs ${node.online ? 'text-borg-green' : 'text-red-400'}`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${node.online ? 'bg-emerald-500' : 'bg-red-500'}`} />
+        <span className={`flex items-center gap-1.5 text-xs ${node.online ? 'text-borg-success' : 'text-borg-danger'}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${node.online ? 'bg-borg-success' : 'bg-borg-danger'}`} />
           {node.online ? 'online' : 'offline'}
         </span>
       </div>
@@ -76,7 +79,7 @@ function NodeCard({ id, node }) {
         <div>
           <div className="flex items-center justify-between text-xs text-borg-muted mb-1">
             <span className="flex items-center gap-1.5">
-              <Bot size={11} className={present ? 'text-borg-green' : 'text-borg-dim'} />
+              <Bot size={11} className={present ? 'text-borg-accent' : 'text-borg-dim'} />
               Luba {present ? 'in range' : 'not seen'}
             </span>
             <span className="text-borg-dim">{fmtTime(node.statusAt)}</span>
@@ -146,14 +149,14 @@ export default function GateView() {
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-borg-border">
         <div className="flex items-center gap-2.5">
-          {isOpen ? <DoorOpen size={18} className="text-borg-green" /> : <DoorClosed size={18} className="text-borg-muted" />}
+          {isOpen ? <DoorOpen size={18} className="text-borg-accent" /> : <DoorClosed size={18} className="text-borg-muted" />}
           <h1 className="text-sm font-semibold text-borg-text">Gate</h1>
           <span className="text-xs text-borg-dim">gateduino · mqtt</span>
         </div>
         <div className="flex items-center gap-2 text-xs text-borg-muted">
           {connected && broker === 'connected'
-            ? <><Wifi size={12} className="text-borg-green" /> live</>
-            : <><WifiOff size={12} className="text-red-400" /> {connected ? `broker ${broker}` : 'reconnecting…'}</>}
+            ? <><Wifi size={12} className="text-borg-success" /> live</>
+            : <><WifiOff size={12} className="text-borg-danger" /> {connected ? `broker ${broker}` : 'reconnecting…'}</>}
         </div>
       </div>
 
@@ -169,7 +172,7 @@ export default function GateView() {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-xs text-borg-muted mb-1">Gate state</div>
-                  <div className={`text-2xl font-semibold tracking-tight ${isOpen ? 'text-borg-green' : 'text-borg-text'}`}>
+                  <div className={`text-2xl font-semibold tracking-tight ${isOpen ? 'text-borg-accent' : 'text-borg-text'}`}>
                     {gateState.toUpperCase()}
                   </div>
                   <div className="text-xs text-borg-dim mt-1">updated {fmtTime(gate?.statusAt)}</div>
@@ -179,7 +182,7 @@ export default function GateView() {
                     onClick={() => command('OPEN')}
                     disabled={pending !== null || !gate?.online}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium
-                               bg-borg-green/15 text-borg-green hover:bg-borg-green/25
+                               bg-borg-accent/15 text-borg-accent hover:bg-borg-accent/25
                                disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     {pending === 'OPEN' ? <Loader2 size={14} className="animate-spin" /> : <DoorOpen size={14} />}
@@ -207,9 +210,9 @@ export default function GateView() {
                   </button>
                 </div>
               </div>
-              {error && <div className="mt-3 text-xs text-red-400">{error}</div>}
+              {error && <div className="mt-3 text-xs text-borg-danger">{error}</div>}
               {!gate?.online && (
-                <div className="mt-3 text-xs text-yellow-400">
+                <div className="mt-3 text-xs text-borg-warning">
                   Gate node offline — commands disabled. (Nodes come online after ESPHome serial flash.)
                 </div>
               )}
@@ -235,7 +238,7 @@ export default function GateView() {
                 {logs.map((l, i) => (
                   <div key={i} className="flex gap-2 px-1">
                     <span className="text-borg-dim shrink-0">{fmtTime(l.at)}</span>
-                    <span className="text-borg-green shrink-0 w-10">{l.node}</span>
+                    <span className="text-borg-accent shrink-0 w-10">{l.node}</span>
                     <span className="text-borg-muted">{l.message}</span>
                   </div>
                 ))}

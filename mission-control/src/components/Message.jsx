@@ -56,7 +56,7 @@ export function StreamingMessage({ content, toolCalls = [], isStreaming }) {
         {(content || isStreaming) && (
           <div className="prose text-sm">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
-            {isStreaming && <span className="cursor-blink text-borg-green ml-0.5">▋</span>}
+            {isStreaming && <span className="cursor-blink text-borg-accent ml-0.5">▋</span>}
           </div>
         )}
       </div>

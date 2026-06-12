@@ -18,7 +18,7 @@ function NewProjectModal({ onClose, onCreate }) {
   }
 
   const inputCls = `w-full bg-borg-panel border border-borg-border rounded-lg px-3 py-2.5 text-sm text-borg-text
-    placeholder-borg-dim focus:outline-none focus:border-borg-green/50 focus:bg-borg-panel transition-colors`
+    placeholder-borg-dim focus:outline-none focus:border-borg-accent/50 focus:bg-borg-panel transition-colors`
   const labelCls = 'text-xs font-medium text-borg-muted block mb-1.5'
 
   return (
@@ -76,8 +76,8 @@ function NewProjectModal({ onClose, onCreate }) {
             Cancel
           </button>
           <button type="submit" disabled={busy || !name.trim() || !objective.trim()}
-            className="flex-1 py-2 rounded-lg bg-borg-green/10 border border-borg-green/30 text-borg-green
-                       hover:bg-borg-green/20 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium transition-colors">
+            className="flex-1 py-2 rounded-lg bg-borg-accent/10 border border-borg-accent/30 text-borg-accent
+                       hover:bg-borg-accent/20 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium transition-colors">
             {busy ? 'Creating…' : 'Create project'}
           </button>
         </div>
@@ -87,7 +87,7 @@ function NewProjectModal({ onClose, onCreate }) {
 }
 
 const STATUS_STYLE = {
-  active:   { dot: 'bg-borg-green', text: 'text-borg-green' },
+  active:   { dot: 'bg-borg-accent', text: 'text-borg-accent' },
   complete: { dot: 'bg-blue-400',   text: 'text-blue-400' },
   failed:   { dot: 'bg-red-400',    text: 'text-red-400' },
 }
@@ -124,8 +124,8 @@ export default function ProjectsView({ onOpenProject }) {
         </div>
         <button
           onClick={() => setModal(true)}
-          className="flex items-center gap-1.5 text-sm text-borg-green bg-borg-green/10 hover:bg-borg-green/15
-                     border border-borg-green/25 px-3 py-1.5 rounded-lg transition-colors font-medium"
+          className="flex items-center gap-1.5 text-sm text-borg-accent bg-borg-accent/10 hover:bg-borg-accent/15
+                     border border-borg-accent/25 px-3 py-1.5 rounded-lg transition-colors font-medium"
         >
           <Plus size={14} /> New project
         </button>

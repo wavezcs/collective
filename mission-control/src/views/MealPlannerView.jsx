@@ -36,7 +36,7 @@ function fmtDate(dateStr) {
 }
 
 const CONTEXT_META = {
-  normal:     { icon: Clock,  color: 'text-borg-green',   bg: 'border-borg-green/30',   label: 'Normal' },
+  normal:     { icon: Clock,  color: 'text-borg-accent',   bg: 'border-borg-accent/30',   label: 'Normal' },
   fast:       { icon: Zap,    color: 'text-yellow-400',   bg: 'border-yellow-400/30',   label: 'Fast (30m)' },
   'super-fast': { icon: Zap,  color: 'text-red-400',      bg: 'border-red-400/30',      label: 'Super-fast' },
   special:    { icon: Star,   color: 'text-purple-400',   bg: 'border-purple-400/30',   label: 'Special' },
@@ -45,7 +45,7 @@ const CONTEXT_META = {
 const RATING_META = {
   '-1': { icon: ThumbsDown, color: 'text-red-400',    label: 'Avoid' },
   '0':  { icon: null,       color: 'text-borg-dim',   label: 'Unrated' },
-  '1':  { icon: ThumbsUp,   color: 'text-borg-green', label: 'Liked' },
+  '1':  { icon: ThumbsUp,   color: 'text-borg-accent', label: 'Liked' },
   '2':  { icon: Heart,      color: 'text-pink-400',   label: 'Loved' },
 }
 
@@ -60,7 +60,7 @@ function TabBar({ tabs, active, onChange }) {
           onClick={() => onChange(t.id)}
           className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors -mb-px ${
             active === t.id
-              ? 'border-borg-green text-borg-text'
+              ? 'border-borg-accent text-borg-text'
               : 'border-transparent text-borg-muted hover:text-borg-text'
           }`}
         >
@@ -124,7 +124,7 @@ function RecipePickerModal({ recipes, day, slot, onPick, onClose }) {
             placeholder="Search recipes…"
             autoFocus
             className="w-full bg-borg-panel border border-borg-border/80 rounded-lg px-3 py-2 text-sm text-borg-text
-                       placeholder-borg-dim focus:outline-none focus:border-borg-green/50 focus:bg-borg-panel"
+                       placeholder-borg-dim focus:outline-none focus:border-borg-accent/50 focus:bg-borg-panel"
           />
           {slot === 'extra' && (
             <div className="flex gap-1.5">
@@ -133,7 +133,7 @@ function RecipePickerModal({ recipes, day, slot, onPick, onClose }) {
                 Sides only
               </button>
               <button onClick={() => setSideOnly(false)}
-                className={`text-xs px-2.5 py-1 rounded border transition-colors ${!sideOnly ? 'border-borg-green/60 text-borg-green bg-borg-panel' : 'border-borg-border text-borg-muted hover:text-borg-text'}`}>
+                className={`text-xs px-2.5 py-1 rounded border transition-colors ${!sideOnly ? 'border-borg-accent/60 text-borg-accent bg-borg-panel' : 'border-borg-border text-borg-muted hover:text-borg-text'}`}>
                 All recipes
               </button>
             </div>
@@ -153,7 +153,7 @@ function RecipePickerModal({ recipes, day, slot, onPick, onClose }) {
               key={r.id}
               onClick={() => onPick(r.id)}
               className={`w-full text-left px-3 py-2 rounded transition-colors hover:bg-borg-panel
-                ${(currentId === r.id || currentIds.includes(r.id)) ? 'bg-borg-panel border border-borg-green/40' : ''}`}
+                ${(currentId === r.id || currentIds.includes(r.id)) ? 'bg-borg-panel border border-borg-accent/40' : ''}`}
             >
               <div className="flex items-center justify-between">
                 <span className="text-borg-text text-sm">{r.name}</span>
@@ -216,7 +216,7 @@ function TagInput({ value = [], onChange, allTags = [] }) {
     <div className="relative">
       <div
         className="flex flex-wrap gap-1 bg-borg-panel border border-borg-border rounded px-2 py-1.5 min-h-[38px] cursor-text
-                   focus-within:border-borg-green/50"
+                   focus-within:border-borg-accent/50"
         onClick={() => inputRef.current?.focus()}
       >
         {value.map(tag => (
@@ -248,7 +248,7 @@ function TagInput({ value = [], onChange, allTags = [] }) {
           ))}
           {isNew && (
             <button type="button" onMouseDown={() => add(input.trim())}
-              className="w-full text-left px-3 py-1.5 text-sm text-borg-green hover:bg-borg-panel transition-colors
+              className="w-full text-left px-3 py-1.5 text-sm text-borg-accent hover:bg-borg-panel transition-colors
                          flex items-center gap-1.5 border-t border-borg-border/50">
               <Plus size={11} /> Add "{input.trim()}"
             </button>
@@ -314,7 +314,7 @@ function AddRecipeModal({ onClose, onCreate, allTags = [] }) {
   }
 
   const inputCls = `w-full bg-borg-panel border border-borg-border/80 rounded-lg px-3 py-2 text-sm text-borg-text
-    placeholder-borg-dim focus:outline-none focus:border-borg-green/50 transition-colors`
+    placeholder-borg-dim focus:outline-none focus:border-borg-accent/50 transition-colors`
   const labelCls = 'text-xs font-medium text-borg-muted block mb-1.5'
 
   return (
@@ -342,12 +342,12 @@ function AddRecipeModal({ onClose, onCreate, allTags = [] }) {
                 className={inputCls + (scraping ? ' pr-8' : '')}
               />
               {scraping && (
-                <Loader2 size={14} className="animate-spin text-borg-green absolute right-2.5 top-1/2 -translate-y-1/2" />
+                <Loader2 size={14} className="animate-spin text-borg-accent absolute right-2.5 top-1/2 -translate-y-1/2" />
               )}
             </div>
             {scrapeError && <div className="text-xs text-red-400 mt-1">{scrapeError}</div>}
             {!scraping && !scrapeError && form.name && form.url && (
-              <div className="text-xs text-borg-green mt-1">Recipe info loaded from URL</div>
+              <div className="text-xs text-borg-accent mt-1">Recipe info loaded from URL</div>
             )}
           </div>
           <div>
@@ -406,8 +406,8 @@ function AddRecipeModal({ onClose, onCreate, allTags = [] }) {
             Cancel
           </button>
           <button type="submit" disabled={busy || !form.name.trim()}
-            className="flex-1 py-2 rounded-lg bg-borg-green/10 border border-borg-green/30 text-borg-green
-                       hover:bg-borg-green/20 disabled:opacity-40 text-sm font-medium transition-colors">
+            className="flex-1 py-2 rounded-lg bg-borg-accent/10 border border-borg-accent/30 text-borg-accent
+                       hover:bg-borg-accent/20 disabled:opacity-40 text-sm font-medium transition-colors">
             {busy ? 'Adding…' : 'Add Recipe'}
           </button>
         </div>
@@ -496,13 +496,13 @@ function PinterestModal({ onClose, onImported }) {
             onChange={e => setUrl(e.target.value)}
             placeholder="https://www.pinterest.com/you/board-name/"
             className="flex-1 bg-borg-panel border border-borg-border/80 rounded-lg px-3 py-2 text-sm text-borg-text
-                       placeholder-borg-dim focus:outline-none focus:border-borg-green/50 focus:bg-borg-panel"
+                       placeholder-borg-dim focus:outline-none focus:border-borg-accent/50 focus:bg-borg-panel"
           />
           <button
             type="submit"
             disabled={adding || !isPinterestUrl(url.trim())}
-            className="flex items-center gap-1.5 text-xs px-3 py-2 rounded border border-borg-green/50
-                       text-borg-green hover:bg-borg-panel disabled:opacity-40 transition-colors shrink-0"
+            className="flex items-center gap-1.5 text-xs px-3 py-2 rounded border border-borg-accent/50
+                       text-borg-accent hover:bg-borg-panel disabled:opacity-40 transition-colors shrink-0"
           >
             {adding ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
             Add Board
@@ -523,15 +523,15 @@ function PinterestModal({ onClose, onImported }) {
                   <div className="flex-1 min-w-0">
                     <div className="text-borg-text text-sm font-medium truncate">{b.name}</div>
                     <a href={b.url} target="_blank" rel="noopener noreferrer"
-                      className="text-xs text-borg-dim hover:text-borg-green truncate block">{b.url}</a>
+                      className="text-xs text-borg-dim hover:text-borg-accent truncate block">{b.url}</a>
                     <div className="flex items-center gap-3 mt-1 text-xs text-borg-dim">
                       <span>Last scanned: {fmtDate(b.last_scanned)}</span>
                       {b.pin_count > 0 && <span>{b.pin_count} pins found</span>}
-                      {b.recipes_added > 0 && <span className="text-borg-green">{b.recipes_added} recipes added total</span>}
+                      {b.recipes_added > 0 && <span className="text-borg-accent">{b.recipes_added} recipes added total</span>}
                     </div>
                     {result && (
                       <div className={`mt-1.5 text-xs px-2 py-1 rounded border ${
-                        result.added?.length ? 'border-borg-green/30 text-borg-green bg-borg-panel' : 'border-borg-border text-borg-dim'
+                        result.added?.length ? 'border-borg-accent/30 text-borg-accent bg-borg-panel' : 'border-borg-border text-borg-dim'
                       }`}>
                         {result.error
                           ? `Error: ${result.error}`
@@ -553,7 +553,7 @@ function PinterestModal({ onClose, onImported }) {
                       onClick={() => handleScan(b.id)}
                       disabled={!!scanning}
                       className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-borg-border
-                                 text-borg-muted hover:text-borg-text hover:border-borg-green/40 disabled:opacity-40 transition-colors"
+                                 text-borg-muted hover:text-borg-text hover:border-borg-accent/40 disabled:opacity-40 transition-colors"
                     >
                       {isScanning ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
                       {isScanning ? 'Scanning…' : 'Scan now'}
@@ -608,7 +608,7 @@ function EditRecipeModal({ recipe, onClose, onSave, allTags = [] }) {
   }
 
   const inputCls = `w-full bg-borg-panel border border-borg-border/80 rounded-lg px-3 py-2 text-sm text-borg-text
-    placeholder-borg-dim focus:outline-none focus:border-borg-green/50 transition-colors`
+    placeholder-borg-dim focus:outline-none focus:border-borg-accent/50 transition-colors`
   const labelCls = 'text-xs font-medium text-borg-muted block mb-1.5'
 
   return (
@@ -680,8 +680,8 @@ function EditRecipeModal({ recipe, onClose, onSave, allTags = [] }) {
             Cancel
           </button>
           <button type="submit" disabled={busy || !form.name.trim()}
-            className="flex-1 py-2 rounded-lg bg-borg-green/10 border border-borg-green/30 text-borg-green
-                       hover:bg-borg-green/20 disabled:opacity-40 text-sm font-medium transition-colors">
+            className="flex-1 py-2 rounded-lg bg-borg-accent/10 border border-borg-accent/30 text-borg-accent
+                       hover:bg-borg-accent/20 disabled:opacity-40 text-sm font-medium transition-colors">
             {busy ? 'Saving…' : 'Save Changes'}
           </button>
         </div>
@@ -837,7 +837,7 @@ function WeekTab({ recipes }) {
           <ThumbsDown size={11} />
         </button>
         <button title="Like" onClick={() => rateInWeek.mutate({ id: recipe.id, rating: r === 1 ? 0 : 1 })}
-          className={`p-0.5 rounded transition-colors ${r === 1 ? 'text-borg-green' : 'text-borg-border hover:text-borg-green'}`}>
+          className={`p-0.5 rounded transition-colors ${r === 1 ? 'text-borg-accent' : 'text-borg-border hover:text-borg-accent'}`}>
           <ThumbsUp size={11} />
         </button>
         <button title="Love" onClick={() => rateInWeek.mutate({ id: recipe.id, rating: r === 2 ? 0 : 2 })}
@@ -859,7 +859,7 @@ function WeekTab({ recipes }) {
         {recipe
           ? (
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
-              <ChefHat size={11} className={isKids ? 'text-blue-400 shrink-0' : 'text-borg-green shrink-0'} />
+              <ChefHat size={11} className={isKids ? 'text-blue-400 shrink-0' : 'text-borg-accent shrink-0'} />
               <span className="text-borg-text text-sm truncate">{recipe.name}</span>
               {recipe.source && <span className="text-borg-dim text-xs hidden sm:inline truncate max-w-[80px]">{recipe.source}</span>}
             </div>
@@ -872,12 +872,12 @@ function WeekTab({ recipes }) {
             const picked = autoPickRecipe(day, slot)
             if (picked) pickMeal.mutate({ date: day.date, slot, recipe_id: picked.id })
           }}
-          className="shrink-0 p-1 rounded text-borg-dim hover:text-borg-green hover:bg-borg-panel transition-colors">
+          className="shrink-0 p-1 rounded text-borg-dim hover:text-borg-accent hover:bg-borg-panel transition-colors">
           <Shuffle size={11} />
         </button>
         <button onClick={() => setPicker({ day, slot })}
           className="shrink-0 text-xs px-1.5 py-0.5 rounded border border-borg-border text-borg-muted
-                     hover:text-borg-text hover:border-borg-green/40 transition-colors">
+                     hover:text-borg-text hover:border-borg-accent/40 transition-colors">
           Pick
         </button>
       </div>
@@ -930,7 +930,7 @@ function WeekTab({ recipes }) {
         {!plan && (
           <button onClick={() => ensurePlan.mutate()}
             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-borg-border
-                       text-borg-muted hover:text-borg-text hover:border-borg-green/40 transition-colors">
+                       text-borg-muted hover:text-borg-text hover:border-borg-accent/40 transition-colors">
             <Plus size={12} /> Start plan
           </button>
         )}
@@ -971,7 +971,7 @@ function WeekTab({ recipes }) {
         {plan && (
           <button onClick={() => generate.mutate()} disabled={generate.isPending || ariaPlanning.isPending}
             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-borg-border
-                       text-borg-muted hover:text-borg-text hover:border-borg-green/40 transition-colors disabled:opacity-50">
+                       text-borg-muted hover:text-borg-text hover:border-borg-accent/40 transition-colors disabled:opacity-50">
             {generate.isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
             Auto-fill
           </button>
@@ -980,7 +980,7 @@ function WeekTab({ recipes }) {
           <button onClick={() => calSync.mutate()} disabled={calSync.isPending}
             title="Re-fetch Google Calendar and update day contexts (fast/special/Chris away)"
             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-borg-border
-                       text-borg-muted hover:text-borg-text hover:border-borg-green/40 transition-colors disabled:opacity-50">
+                       text-borg-muted hover:text-borg-text hover:border-borg-accent/40 transition-colors disabled:opacity-50">
             {calSync.isPending ? <Loader2 size={12} className="animate-spin" /> : <Calendar size={12} />}
             {calSync.isPending ? 'Syncing…' : calSync.isSuccess ? 'Synced!' : 'Sync calendar'}
           </button>
@@ -1212,7 +1212,7 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
           onChange={e => setSearch(e.target.value)}
           placeholder="Search recipes…"
           className="w-full bg-borg-panel border border-borg-border rounded px-3 py-2 text-sm text-borg-text
-                     placeholder-borg-dim focus:outline-none focus:border-borg-green/50"
+                     placeholder-borg-dim focus:outline-none focus:border-borg-accent/50"
         />
         <div className="flex items-center justify-between">
           <div className="flex gap-1 flex-wrap">
@@ -1220,8 +1220,8 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
               <button key={c.id} onClick={() => setChip(c.id)}
                 className={`text-xs px-2 py-0.5 rounded border transition-colors ${
                   chip === c.id
-                    ? 'border-borg-green text-borg-green bg-borg-panel'
-                    : 'border-borg-border text-borg-muted hover:border-borg-green/40 hover:text-borg-text'
+                    ? 'border-borg-accent text-borg-accent bg-borg-panel'
+                    : 'border-borg-border text-borg-muted hover:border-borg-accent/40 hover:text-borg-text'
                 }`}>
                 {c.label}
               </button>
@@ -1230,7 +1230,7 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
           <div className="flex gap-1.5 items-center">
             <button onClick={() => setShowPinterest(true)}
               className="flex items-center gap-1.5 text-xs text-borg-muted px-2.5 py-1.5 rounded border border-borg-border
-                         hover:text-borg-text hover:border-borg-green/40 transition-colors">
+                         hover:text-borg-text hover:border-borg-accent/40 transition-colors">
               <Download size={12} /> Pinterest
             </button>
             <div className="relative group">
@@ -1258,12 +1258,12 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
             <button onClick={() => { setDedupResult(null); dedup.mutate() }} disabled={dedup.isPending}
               title="Remove duplicate recipes (same URL)"
               className="flex items-center gap-1.5 text-xs text-borg-muted px-2.5 py-1.5 rounded border border-borg-border
-                         hover:text-borg-text hover:border-borg-green/40 transition-colors disabled:opacity-50">
+                         hover:text-borg-text hover:border-borg-accent/40 transition-colors disabled:opacity-50">
               {dedup.isPending ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
               {dedupResult != null ? `Removed ${dedupResult.deleted}` : 'Dedup'}
             </button>
             <button onClick={() => setShowAdd(true)}
-              className="flex items-center gap-1.5 text-xs text-borg-green px-2.5 py-1.5 rounded border border-borg-green/40
+              className="flex items-center gap-1.5 text-xs text-borg-accent px-2.5 py-1.5 rounded border border-borg-accent/40
                          hover:bg-borg-panel transition-colors">
               <Plus size={12} /> Add Recipe
             </button>
@@ -1306,7 +1306,7 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
                   <span className="text-borg-text font-medium leading-snug">{r.name}</span>
                   {r.url && (
                     <a href={r.url} target="_blank" rel="noopener noreferrer"
-                      className="text-borg-dim hover:text-borg-green shrink-0 mt-0.5 transition-colors">
+                      className="text-borg-dim hover:text-borg-accent shrink-0 mt-0.5 transition-colors">
                       <span className="text-xs">↗</span>
                     </a>
                   )}
@@ -1349,7 +1349,7 @@ function CatalogTab({ recipes, isLoading, onRefresh }) {
                   {/* Edit + Delete */}
                   <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button onClick={() => setEditRecipe(r)}
-                      className="p-1 rounded-md text-borg-dim hover:text-borg-green hover:bg-borg-panel transition-colors">
+                      className="p-1 rounded-md text-borg-dim hover:text-borg-accent hover:bg-borg-panel transition-colors">
                       <Pencil size={12} />
                     </button>
                     <button onClick={() => { if (confirm(`Delete "${r.name}"?`)) remove.mutate(r.id) }}
@@ -1428,7 +1428,7 @@ function StoreColumn({ label, items, onToggle, onEditName, onAdd, onRemove, copi
         </div>
         <button onClick={onCopy}
           className={`flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors ${
-            copied ? 'border-borg-green text-borg-green' : 'border-borg-border text-borg-muted hover:text-borg-text hover:border-borg-green/40'
+            copied ? 'border-borg-accent text-borg-accent' : 'border-borg-border text-borg-muted hover:text-borg-text hover:border-borg-accent/40'
           }`}>
           {copied ? <Check size={10} /> : <Copy size={10} />}
           {copied ? 'Copied!' : 'Copy'}
@@ -1446,7 +1446,7 @@ function StoreColumn({ label, items, onToggle, onEditName, onAdd, onRemove, copi
                   onChange={e => setEditVal(e.target.value)}
                   onBlur={commitEdit}
                   onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditIdx(null) }}
-                  className="flex-1 bg-borg-panel border border-borg-green/50 rounded px-2 py-0.5 text-sm text-borg-text focus:outline-none" />
+                  className="flex-1 bg-borg-panel border border-borg-accent/50 rounded px-2 py-0.5 text-sm text-borg-text focus:outline-none" />
               : <span className={`flex-1 text-sm min-w-0 truncate ${item.checked ? 'line-through text-borg-dim' : 'text-borg-text'}`}>
                   {item.item}
                   {item.recipe && !item.staple && <span className="text-borg-dim/60 ml-1 text-xs">({item.recipe})</span>}
@@ -1455,7 +1455,7 @@ function StoreColumn({ label, items, onToggle, onEditName, onAdd, onRemove, copi
             }
             <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
               <button onClick={() => startEdit(idx, item.item)}
-                className="p-0.5 rounded text-borg-dim hover:text-borg-green hover:bg-borg-panel transition-colors">
+                className="p-0.5 rounded text-borg-dim hover:text-borg-accent hover:bg-borg-panel transition-colors">
                 <Pencil size={10} />
               </button>
               <button onClick={() => onRemove(idx)}
@@ -1470,9 +1470,9 @@ function StoreColumn({ label, items, onToggle, onEditName, onAdd, onRemove, copi
         className="flex gap-1.5 mt-2">
         <input value={newItem} onChange={e => setNewItem(e.target.value)} placeholder="Add item…"
           className="flex-1 bg-borg-panel border border-borg-border rounded px-2 py-1 text-xs text-borg-text
-                     placeholder-borg-dim focus:outline-none focus:border-borg-green/50" />
+                     placeholder-borg-dim focus:outline-none focus:border-borg-accent/50" />
         <button type="submit" disabled={!newItem.trim()}
-          className="p-1.5 rounded border border-borg-border text-borg-muted hover:text-borg-green hover:border-borg-green/40 disabled:opacity-30 transition-colors">
+          className="p-1.5 rounded border border-borg-border text-borg-muted hover:text-borg-accent hover:border-borg-accent/40 disabled:opacity-30 transition-colors">
           <Plus size={12} />
         </button>
       </form>
@@ -1518,16 +1518,16 @@ function StaplesEditor({ staples, onSave }) {
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addItem(store) } }}
               placeholder="Add staple…"
               className="flex-1 bg-borg-surface border border-borg-border rounded px-2 py-1 text-xs text-borg-text
-                         placeholder-borg-dim focus:outline-none focus:border-borg-green/50" />
+                         placeholder-borg-dim focus:outline-none focus:border-borg-accent/50" />
             <button type="button" onClick={() => addItem(store)} disabled={!inputs[store].trim()}
-              className="p-1.5 rounded border border-borg-border text-borg-muted hover:text-borg-green hover:border-borg-green/40 disabled:opacity-30 transition-colors">
+              className="p-1.5 rounded border border-borg-border text-borg-muted hover:text-borg-accent hover:border-borg-accent/40 disabled:opacity-30 transition-colors">
               <Plus size={12} />
             </button>
           </div>
         </div>
       ))}
       <button onClick={() => onSave(local)}
-        className="text-xs px-3 py-1.5 rounded border border-borg-green/50 text-borg-green hover:bg-borg-surface transition-colors">
+        className="text-xs px-3 py-1.5 rounded border border-borg-accent/50 text-borg-accent hover:bg-borg-surface transition-colors">
         Save Staples
       </button>
     </div>
@@ -1632,8 +1632,8 @@ function GroceryTab() {
             </div>
           )}
           <button onClick={() => generateMut.mutate()} disabled={generateMut.isPending}
-            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-borg-green/50
-                       text-borg-green hover:bg-borg-panel disabled:opacity-50 transition-colors shrink-0">
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-borg-accent/50
+                       text-borg-accent hover:bg-borg-panel disabled:opacity-50 transition-colors shrink-0">
             {generateMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
             {hasItems ? 'Update List' : 'Generate List'}
           </button>
@@ -1728,8 +1728,8 @@ function DiscoveredTab({ onRefresh }) {
         <button
           onClick={() => { setDiscoverResult(null); discover.mutate() }}
           disabled={discover.isPending}
-          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-borg-green/40
-                     text-borg-green hover:bg-borg-panel transition-colors disabled:opacity-50 shrink-0">
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-borg-accent/40
+                     text-borg-accent hover:bg-borg-panel transition-colors disabled:opacity-50 shrink-0">
           {discover.isPending ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
           {discover.isPending ? 'Searching…' : 'Find similar recipes'}
         </button>
@@ -1737,7 +1737,7 @@ function DiscoveredTab({ onRefresh }) {
 
       {discoverResult != null && (
         <div className="px-5 py-2 text-xs border-b border-borg-border shrink-0
-                        text-borg-green bg-borg-green/5">
+                        text-borg-accent bg-borg-accent/5">
           Found {discoverResult.added?.length || 0} new recipe{discoverResult.added?.length !== 1 ? 's' : ''}
           {discoverResult.added?.length === 0 && ' — all known recipes on these sites are already in your catalog'}
         </div>
@@ -1749,7 +1749,7 @@ function DiscoveredTab({ onRefresh }) {
           onChange={e => setSearch(e.target.value)}
           placeholder="Filter discovered recipes…"
           className="w-full bg-borg-panel border border-borg-border rounded px-3 py-1.5 text-sm text-borg-text
-                     placeholder-borg-dim focus:outline-none focus:border-borg-green/50"
+                     placeholder-borg-dim focus:outline-none focus:border-borg-accent/50"
         />
       </div>
 
@@ -1784,7 +1784,7 @@ function DiscoveredTab({ onRefresh }) {
                   <span className="text-borg-text text-sm font-medium leading-snug flex-1 line-clamp-2">{r.name}</span>
                   {r.url && (
                     <a href={r.url} target="_blank" rel="noopener noreferrer"
-                      className="text-borg-dim hover:text-borg-green text-xs shrink-0 mt-0.5 transition-colors">↗</a>
+                      className="text-borg-dim hover:text-borg-accent text-xs shrink-0 mt-0.5 transition-colors">↗</a>
                   )}
                 </div>
                 <div className="flex items-center gap-2 text-xs text-borg-muted mb-3 flex-wrap">
@@ -1798,8 +1798,8 @@ function DiscoveredTab({ onRefresh }) {
                 <div className="flex gap-1.5 mt-auto">
                   <button
                     onClick={() => approve.mutate(r.id)}
-                    className="flex-1 py-1.5 rounded text-xs bg-borg-green/10 border border-borg-green/30 text-borg-green
-                               hover:bg-borg-green/20 transition-colors font-medium">
+                    className="flex-1 py-1.5 rounded text-xs bg-borg-accent/10 border border-borg-accent/30 text-borg-accent
+                               hover:bg-borg-accent/20 transition-colors font-medium">
                     Add to rotation
                   </button>
                   <button
@@ -1878,8 +1878,8 @@ function PreferencesTab() {
           <button
             onClick={() => save.mutate()}
             disabled={!dirty || save.isPending}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-borg-green/40
-                       text-borg-green hover:bg-borg-panel transition-colors disabled:opacity-40">
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-borg-accent/40
+                       text-borg-accent hover:bg-borg-panel transition-colors disabled:opacity-40">
             <Save size={12} /> {save.isPending ? 'Saving…' : 'Save'}
           </button>
         </div>
@@ -1918,7 +1918,7 @@ function PreferencesTab() {
               spellCheck={false}
               className="flex-1 w-full bg-borg-panel border border-borg-border rounded-lg px-4 py-3
                          text-sm text-borg-text font-mono leading-relaxed resize-none
-                         focus:outline-none focus:border-borg-green/50 transition-colors"
+                         focus:outline-none focus:border-borg-accent/50 transition-colors"
               placeholder="Loading preferences…"
             />
           )
@@ -1954,7 +1954,7 @@ export default function MealPlannerView() {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center gap-3 px-6 py-4 border-b border-borg-border shrink-0">
-        <ChefHat size={18} className="text-borg-green" />
+        <ChefHat size={18} className="text-borg-accent" />
         <div>
           <div className="text-borg-text font-semibold">Meal Planner</div>
           <div className="text-borg-muted text-sm">{recipes.length} recipes in rotation</div>

@@ -61,7 +61,7 @@ function ActivityItem({ activity }) {
     const Icon = TOOL_ICONS[activity.name] || Cpu
     return (
       <div className="flex items-center gap-1.5 text-xs text-borg-muted">
-        <Icon size={9} className="text-borg-green shrink-0" />
+        <Icon size={9} className="text-borg-accent shrink-0" />
         <span>{TOOL_LABELS[activity.name] || activity.name}</span>
       </div>
     )
@@ -72,7 +72,7 @@ function ActivityItem({ activity }) {
   if (activity.type === 'web_result') {
     return (
       <div className="text-xs pl-3">
-        <span className="text-borg-green">{activity.count} results</span>
+        <span className="text-borg-accent">{activity.count} results</span>
         {activity.title && <span className="text-borg-dim/60"> — {activity.title.slice(0, 45)}</span>}
       </div>
     )
@@ -81,7 +81,7 @@ function ActivityItem({ activity }) {
     return <div className="text-xs text-borg-muted pl-3 line-clamp-1">→ {activity.text}</div>
   }
   if (activity.type === 'response') {
-    return <div className="text-xs text-borg-text/80 pl-3 border-l border-borg-green/30 line-clamp-2 leading-relaxed">{activity.text}</div>
+    return <div className="text-xs text-borg-text/80 pl-3 border-l border-borg-accent/30 line-clamp-2 leading-relaxed">{activity.text}</div>
   }
   return null
 }
@@ -114,13 +114,13 @@ function ActivityFeed({ hermesMessages, sessionInfo, isGenerating }) {
       <div className="text-xs text-borg-dim mb-2 uppercase tracking-wider flex items-center gap-1.5">
         <Brain size={9} />
         Activity
-        {isGenerating && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-borg-green animate-pulse" />}
+        {isGenerating && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-borg-accent animate-pulse" />}
       </div>
 
       {/* Current step */}
       {currentStep && (
         <div className={`flex items-start gap-1.5 text-xs mb-2 pb-2 border-b border-borg-border
-          ${currentStep.active ? 'text-borg-green' : currentStep.dim ? 'text-borg-dim' : 'text-borg-muted'}`}>
+          ${currentStep.active ? 'text-borg-accent' : currentStep.dim ? 'text-borg-dim' : 'text-borg-muted'}`}>
           <span className={currentStep.active ? 'animate-pulse mt-0.5' : 'mt-0.5'}>●</span>
           <div>
             <div className="font-medium">{currentStep.label}</div>
@@ -144,7 +144,7 @@ function ActivityFeed({ hermesMessages, sessionInfo, isGenerating }) {
 // ─── Iteration row ────────────────────────────────────────────────────────────
 
 function IterationRow({ iter }) {
-  const icon = { keep: <CheckCircle size={12} className="text-borg-green shrink-0" />, revert: <XCircle size={12} className="text-red-400 shrink-0" />, pending: <Clock size={12} className="text-borg-dim shrink-0" /> }[iter.decision] || <Clock size={12} className="text-borg-dim shrink-0" />
+  const icon = { keep: <CheckCircle size={12} className="text-borg-accent shrink-0" />, revert: <XCircle size={12} className="text-red-400 shrink-0" />, pending: <Clock size={12} className="text-borg-dim shrink-0" /> }[iter.decision] || <Clock size={12} className="text-borg-dim shrink-0" />
   return (
     <div className="flex items-start gap-2 py-2 border-b border-borg-border/50 last:border-0 text-xs">
       <span className="text-borg-dim w-6 shrink-0 text-right">#{iter.number}</span>
@@ -154,7 +154,7 @@ function IterationRow({ iter }) {
         {iter.judge_reasoning && <div className="text-borg-dim/70 mt-0.5 line-clamp-2">{iter.judge_reasoning}</div>}
       </div>
       {iter.score != null && (
-        <span className={`shrink-0 font-mono ${Number(iter.score) >= 7 ? 'text-borg-green' : 'text-borg-muted'}`}>
+        <span className={`shrink-0 font-mono ${Number(iter.score) >= 7 ? 'text-borg-accent' : 'text-borg-muted'}`}>
           {Number(iter.score).toFixed(1)}
         </span>
       )}
@@ -488,13 +488,13 @@ export default function ProjectDetail({ project, onBack }) {
           <button onClick={onBack} className="text-borg-dim hover:text-borg-text transition-colors">
             <ArrowLeft size={14} />
           </button>
-          <h1 className="text-borg-green font-semibold text-sm flex-1">{project.name}</h1>
+          <h1 className="text-borg-accent font-semibold text-sm flex-1">{project.name}</h1>
           <button
             onClick={resubmit}
             disabled={busy}
             title="Reset and restart research"
-            className="flex items-center gap-1 text-xs text-borg-dim hover:text-borg-green border border-borg-border
-                       hover:border-borg-green/40 rounded px-2 py-1 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-1 text-xs text-borg-dim hover:text-borg-accent border border-borg-border
+                       hover:border-borg-accent/40 rounded px-2 py-1 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <RefreshCw size={11} />
             Resubmit
@@ -506,14 +506,14 @@ export default function ProjectDetail({ project, onBack }) {
             {iterations.length}/{proj?.max_iterations || project.max_iterations || '?'} iterations
           </span>
           {bestScore != null && bestScore > 0 && (
-            <span className="flex items-center gap-1 text-borg-green">
+            <span className="flex items-center gap-1 text-borg-accent">
               <Target size={10} />
               best score: {bestScore.toFixed(1)}
             </span>
           )}
           {isStalled
             ? <span className="text-red-400">⚠ stalled</span>
-            : (busy || isGenerating) && <span className="text-borg-green animate-pulse">● running</span>
+            : (busy || isGenerating) && <span className="text-borg-accent animate-pulse">● running</span>
           }
         </div>
       </div>
@@ -595,8 +595,8 @@ export default function ProjectDetail({ project, onBack }) {
             <div className="px-4 pb-3 flex gap-2">
               <button
                 onClick={() => startResearch()}
-                className="flex-1 py-2 rounded border border-borg-green/60 bg-borg-green/10 text-borg-green
-                           text-sm font-medium hover:bg-borg-green/20 transition-colors"
+                className="flex-1 py-2 rounded border border-borg-accent/60 bg-borg-accent/10 text-borg-accent
+                           text-sm font-medium hover:bg-borg-accent/20 transition-colors"
               >
                 Start Research
               </button>
@@ -622,13 +622,13 @@ export default function ProjectDetail({ project, onBack }) {
               <div className="text-xs text-borg-dim mb-2 uppercase tracking-wider flex items-center gap-1.5">
                 <Activity size={9} />
                 Session
-                {isGenerating && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-borg-green animate-pulse" />}
+                {isGenerating && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-borg-accent animate-pulse" />}
               </div>
               <div className="space-y-1.5 text-xs">
                 <div className="flex justify-between items-center">
                   <span className="text-borg-dim">Status</span>
                   <span className={
-                    isGenerating  ? 'text-borg-green font-medium' :
+                    isGenerating  ? 'text-borg-accent font-medium' :
                     isStalled     ? 'text-red-400 font-medium' :
                     sessionInfo.ended_at ? 'text-borg-muted' : 'text-borg-dim'
                   }>
@@ -648,7 +648,7 @@ export default function ProjectDetail({ project, onBack }) {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-borg-dim">Output tokens</span>
-                  <span className={`font-mono ${isGenerating ? 'text-borg-green' : 'text-borg-text'}`}>
+                  <span className={`font-mono ${isGenerating ? 'text-borg-accent' : 'text-borg-text'}`}>
                     {(sessionInfo.output_tokens || 0).toLocaleString()}
                     {isGenerating && ' ↑'}
                   </span>
@@ -656,7 +656,7 @@ export default function ProjectDetail({ project, onBack }) {
                 {tokensPerSec != null && (
                   <div className="flex justify-between items-center">
                     <span className="text-borg-dim">Speed</span>
-                    <span className="font-mono text-borg-green">{tokensPerSec} tok/s</span>
+                    <span className="font-mono text-borg-accent">{tokensPerSec} tok/s</span>
                   </div>
                 )}
               </div>
